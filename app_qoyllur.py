@@ -88,7 +88,7 @@ def cargar_datos_ttl():
     2. Eventos ordenados por marco temporal y orden de evento
     3. Relaciones entre eventos y lugares
     """
-    ttl_path = "qoyllurity.ttl"
+    ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
     if not Path(ttl_path).exists():
         st.error(f"❌ No se encontró el archivo TTL en: {ttl_path}")
         return {}, [], {}
@@ -451,7 +451,7 @@ def cargar_conocimiento():
         from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
         
         # Cargar con la ruta correcta
-        ttl_path = "qoyllurity.ttl"
+        ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
         if not Path(ttl_path).exists():
             st.warning(f"⚠️ No se encontró el archivo TTL en: {ttl_path}")
             return None
@@ -834,17 +834,68 @@ def main():
         if motor:
             st.markdown("### ❓ Sistema de Preguntas y Respuestas")
             
-            col1, col2 = st.columns([3, 1])
+            # Selector de modo de pregunta
+            col1, col2 = st.columns([1, 1])
             with col1:
-                pregunta = st.selectbox(
-                    "🔍 Selecciona una pregunta:",
-                    options=[""] + TOP_10_PREGUNTAS,
-                    format_func=lambda x: "🎯 Elige una pregunta..." if x == "" else x
+                modo_pregunta = st.radio(
+                    "Selecciona cómo hacer tu pregunta:",
+                    ["📋 Elegir de la lista", "✍️ Escribir mi propia pregunta"],
+                    horizontal=True
                 )
-            with col2:
-                st.markdown("<div style='margin-top: 26px;'>", unsafe_allow_html=True)
-                responder = st.button("✨ Consultar", use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+            
+            pregunta = ""
+            
+            if modo_pregunta == "📋 Elegir de la lista":
+                # Modo selector
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    pregunta = st.selectbox(
+                        "🔍 Selecciona una pregunta:",
+                        options=[""] + TOP_10_PREGUNTAS,
+                        format_func=lambda x: "🎯 Elige una pregunta..." if x == "" else x,
+                        key="select_pregunta"
+                    )
+                with col2:
+                    st.markdown("<div style='margin-top: 26px;'>", unsafe_allow_html=True)
+                    responder = st.button("✨ Consultar", use_container_width=True, key="btn_select")
+                    st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                # Modo texto libre
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    pregunta = st.text_input(
+                        "✍️ Escribe tu pregunta:",
+                        placeholder="Ejemplo: ¿Cuántos días dura la peregrinación?",
+                        key="input_pregunta"
+                    )
+                with col2:
+                    st.markdown("<div style='margin-top: 26px;'>", unsafe_allow_html=True)
+                    responder = st.button("✨ Consultar", use_container_width=True, key="btn_input")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                
+                # Mostrar ejemplos de preguntas
+                with st.expander("💡 Ver ejemplos de preguntas que puedes hacer"):
+                    st.markdown("""
+                    **Preguntas sobre ubicación:**
+                    - ¿Dónde queda el santuario de Qoyllur Rit'i?
+                    - ¿En qué lugar se hace la misa de ukukus?
+                    - ¿Dónde está ubicado el glaciar Colque Punku?
+                    
+                    **Preguntas sobre eventos:**
+                    - ¿Qué eventos ocurren el día 3?
+                    - ¿Cuándo es la bajada del glaciar?
+                    - ¿Qué hacen en la lomada?
+                    
+                    **Preguntas sobre participantes:**
+                    - ¿Quién realiza la lomada?
+                    - ¿Qué hacen los ukukus?
+                    - ¿Quiénes participan en la peregrinación?
+                    
+                    **Preguntas generales:**
+                    - ¿Qué es Qoyllur Rit'i?
+                    - ¿Qué es la danza del ukumari?
+                    - ¿Cuántas naciones participan?
+                    """)
             
             if responder and pregunta:
                 with st.spinner("🔍 Buscando en la memoria andina..."):
@@ -866,6 +917,9 @@ def main():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+            elif responder and not pregunta:
+                st.warning("⚠️ Por favor escribe o selecciona una pregunta primero.")
+                
         else:
             st.info("ℹ️ Sistema de preguntas no disponible. Verifica que esté instalado el motor de conocimiento.")
     
