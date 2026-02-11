@@ -89,7 +89,7 @@ def cargar_lugares_desde_ttl():
     - Descripción (rdfs:comment)
     - Tipo de entidad (rdf:type)
     """
-    ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
+    ttl_path = "qoyllurity.ttl"
     if not Path(ttl_path).exists():
         st.error(f"❌ No se encontró el archivo TTL en: {ttl_path}")
         return {}
