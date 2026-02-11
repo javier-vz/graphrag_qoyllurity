@@ -116,110 +116,123 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15("qoyllurity.ttl")
 
 # ============================================================================
-# MAPA CON FOLIUM - SOLO PUNTOS NEGROS
+# MAPA CON FOLIUM - PUNTOS DE COLORES Y POPUPS BONITOS
 # ============================================================================
 def crear_mapa_folium():
-    """Crea mapa con Folium - puntos negros grandes, SIN RUTAS"""
+    """Crea mapa con Folium - puntos de colores, popups con info"""
     
     # Centro del mapa
     mapa = folium.Map(
         location=[-13.55, -71.4],
         zoom_start=8,
-        control_scale=True
+        control_scale=True,
+        tiles='OpenStreetMap'
     )
     
-    # Agregar cada lugar como un punto NEGRO grande
+    # Diccionario de colores por tipo de lugar (inferido del nombre)
+    colores = {
+        'santuario': 'red',
+        'glaciar': 'lightblue',
+        'cruz': 'green',
+        'iglesia': 'orange',
+        'plaza': 'purple',
+        'pueblo': 'blue',
+        'cementerio': 'gray',
+        'laguna': 'cadetblue',
+        'descanso': 'darkpurple',
+        'inicio': 'darkgreen',
+        'capilla': 'orange',
+        'gruta': 'darkred'
+    }
+    
+    # Iconos por tipo
+    iconos = {
+        'santuario': '🏔️',
+        'glaciar': '❄️',
+        'cruz': '✝️',
+        'iglesia': '⛪',
+        'plaza': '🎭',
+        'pueblo': '🏘️',
+        'cementerio': '🕊️',
+        'laguna': '💧',
+        'descanso': '😴',
+        'inicio': '🚩',
+        'capilla': '⛪',
+        'gruta': '🕯️'
+    }
+    
     for nombre, lugar in LUGARES_TTL.items():
-        folium.CircleMarker(
+        # Determinar color e icono según el nombre
+        color = 'blue'
+        icono = '📍'
+        
+        nombre_lower = nombre.lower()
+        
+        if 'santuario' in nombre_lower:
+            color = 'red'
+            icono = '🏔️'
+        elif 'colque' in nombre_lower or 'glaciar' in nombre_lower:
+            color = 'lightblue'
+            icono = '❄️'
+        elif 'cruz' in nombre_lower:
+            color = 'green'
+            icono = '✝️'
+        elif 'iglesia' in nombre_lower:
+            color = 'orange'
+            icono = '⛪'
+        elif 'plaza' in nombre_lower:
+            color = 'purple'
+            icono = '🎭'
+        elif 'cementerio' in nombre_lower:
+            color = 'gray'
+            icono = '🕊️'
+        elif 'yanaqocha' in nombre_lower or 'laguna' in nombre_lower:
+            color = 'cadetblue'
+            icono = '💧'
+        elif 'yanaqancha' in nombre_lower or 'descanso' in nombre_lower:
+            color = 'darkpurple'
+            icono = '😴'
+        elif 'mahuayani' in nombre_lower or 'inicio' in nombre_lower:
+            color = 'darkgreen'
+            icono = '🚩'
+        elif 'capilla' in nombre_lower:
+            color = 'orange'
+            icono = '⛪'
+        elif 'gruta' in nombre_lower:
+            color = 'darkred'
+            icono = '🕯️'
+        
+        # Crear popup con HTML bonito
+        popup_html = f"""
+        <div style="font-family: 'Inter', sans-serif; min-width: 200px;">
+            <h4 style="color: #1e3c72; margin: 0 0 8px 0;">{icono} {nombre}</h4>
+            <hr style="margin: 8px 0; border: 1px solid #e67e22;">
+            <p style="margin: 8px 0; color: #2c3e50;">
+                <b>📍 Coordenadas:</b><br>
+                {lugar['lat']:.4f}, {lugar['lon']:.4f}
+            </p>
+        """
+        
+        # Agregar descripción si existe
+        if 'descripcion' in lugar and lugar['descripcion']:
+            popup_html += f"""
+            <p style="margin: 8px 0; color: #2c3e50;">
+                <b>📝 Descripción:</b><br>
+                {lugar['descripcion']}
+            </p>
+            """
+        
+        popup_html += "</div>"
+        
+        # Agregar marcador
+        folium.Marker(
             location=[lugar["lat"], lugar["lon"]],
-            radius=10,  # GRANDE
-            color="black",
-            weight=2,
-            fill=True,
-            fill_color="black",
-            fill_opacity=0.8,
-            popup=folium.Popup(f"<b>{nombre}</b><br>{lugar['lat']:.4f}, {lugar['lon']:.4f}", max_width=300),
-            tooltip=nombre
+            popup=folium.Popup(popup_html, max_width=300),
+            tooltip=nombre,
+            icon=folium.Icon(color=color, icon='info-sign')
         ).add_to(mapa)
     
     return mapa
-
-# ============================================================================
-# PERFIL DE ALTITUD
-# ============================================================================
-def crear_perfil_altitud():
-    """Perfil de altitud con datos reales"""
-    
-    ruta = [
-        {"lugar": "Paucartambo", "dist": 0, "alt": 2900},
-        {"lugar": "Huancarani", "dist": 25, "alt": 3500},
-        {"lugar": "Ccatcca", "dist": 45, "alt": 3700},
-        {"lugar": "Ocongate", "dist": 65, "alt": 3800},
-        {"lugar": "Mahuayani", "dist": 85, "alt": 4200},
-        {"lugar": "Santuario", "dist": 95, "alt": 4800},
-        {"lugar": "MachuCruz", "dist": 98, "alt": 4900},
-        {"lugar": "Yanaqocha", "dist": 102, "alt": 4850},
-        {"lugar": "Yanaqancha", "dist": 106, "alt": 4750},
-        {"lugar": "QespiCruz", "dist": 115, "alt": 4600},
-        {"lugar": "IntiLloksimuy", "dist": 120, "alt": 4500},
-        {"lugar": "Tayancani", "dist": 125, "alt": 3800}
-    ]
-    
-    df = pd.DataFrame(ruta)
-    
-    fig = make_subplots(
-        rows=2, cols=1,
-        row_heights=[0.7, 0.3],
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente")
-    )
-    
-    # Perfil
-    fig.add_trace(
-        go.Scatter(
-            x=df["dist"], y=df["alt"],
-            mode="lines+markers",
-            line=dict(color="#1e3c72", width=4),
-            marker=dict(size=10, color="#e67e22"),
-            text=df["lugar"],
-            hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>"
-        ),
-        row=1, col=1
-    )
-    
-    # Zonas
-    fig.add_vrect(x0=0, x1=85, fillcolor="rgba(46,204,113,0.1)", line_width=0,
-                  annotation_text="🚌 Zona vehicular", annotation_position="top left", row=1, col=1)
-    fig.add_vrect(x0=85, x1=95, fillcolor="rgba(241,196,15,0.1)", line_width=0,
-                  annotation_text="🚶 Ascenso", annotation_position="top left", row=1, col=1)
-    fig.add_vrect(x0=95, x1=125, fillcolor="rgba(155,89,182,0.1)", line_width=0,
-                  annotation_text="🏔️ Lomada (24h)", annotation_position="top left", row=1, col=1)
-    
-    # Pendiente
-    pendientes = []
-    for i in range(1, len(df)):
-        pend = (df.loc[i, "alt"] - df.loc[i-1, "alt"]) / (df.loc[i, "dist"] - df.loc[i-1, "dist"]) * 100
-        pendientes.append({"x": (df.loc[i, "dist"] + df.loc[i-1, "dist"]) / 2, "pend": pend})
-    
-    df_pend = pd.DataFrame(pendientes)
-    colors = ['#27ae60' if p > 0 else '#e74c3c' for p in df_pend["pend"]]
-    
-    fig.add_trace(
-        go.Bar(x=df_pend["x"], y=df_pend["pend"], marker_color=colors,
-               showlegend=False, hovertemplate="Pendiente: %{y:.1f}%<extra></extra>"),
-        row=2, col=1
-    )
-    
-    fig.add_hline(y=0, line_dash="dash", line_color="#7f8c8d", opacity=0.5, row=2, col=1)
-    
-    fig.update_layout(height=500, hovermode="x unified", plot_bgcolor="white", showlegend=False)
-    fig.update_xaxes(title_text="Distancia (km)", row=1, col=1)
-    fig.update_yaxes(title_text="Altitud (msnm)", row=1, col=1)
-    fig.update_xaxes(title_text="Distancia (km)", row=2, col=1)
-    fig.update_yaxes(title_text="Pendiente (%)", row=2, col=1)
-    
-    return fig
 
 # ============================================================================
 # APP PRINCIPAL
