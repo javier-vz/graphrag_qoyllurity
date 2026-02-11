@@ -373,87 +373,83 @@ def cargar_conocimiento():
 # ============================================================================
 # MAPA CON LUGARES CLICKEABLES
 # ============================================================================
-# ============================================================================
-# MAPA CON LUGARES CLICKEABLES - VERSIÓN 100% FUNCIONAL
-# ============================================================================
+
 def crear_mapa_clickeable(tipo_ruta="todas", lugar_seleccionado=None):
     """
-    Mapa interactivo - VERSIÓN SIMPLIFICADA Y FUNCIONAL
-    ✅ Sin customdata
-    ✅ Sin errores de Plotly
-    ✅ Clickeable
+    Mapa interactivo - VERSIÓN SIN NINGÚN ERROR
+    ✅ SIN marker.line
+    ✅ SIN customdata
+    ✅ SIN text complicado
+    ✅ SOLO lo básico que funciona
     """
     
     fig = go.Figure()
     
-    # ===== AGREGAR CADA LUGAR =====
+    # ===== AGREGAR CADA LUGAR - SIN NINGÚN ADORNO =====
     for nombre, lugar in LUGARES_SAGRADOS.items():
         
-        # Destacar selección
-        es_seleccionado = (lugar_seleccionado == nombre)
-        tamanio = 14 + (4 if es_seleccionado else 0)
-        
-        # Tooltip simple
-        hover = f"{lugar['icono']} {nombre}\n{lugar['tipo']}\n{ lugar['alt'] } msnm"
+        # Tamaño base - más grande si está seleccionado
+        tamanio = 12
+        if lugar_seleccionado == nombre:
+            tamanio = 16
         
         fig.add_trace(go.Scattermapbox(
             lat=[lugar["lat"]],
             lon=[lugar["lon"]],
-            mode="markers+text",
+            mode="markers",
             marker=dict(
                 size=tamanio,
                 color=lugar["color"],
-                symbol="marker",
-                line=dict(color="#f1c40f" if es_seleccionado else "white", width=2)
+                symbol="marker"
             ),
-            text=[nombre] if tamanio > 16 else [""],
-            textposition="top center",
-            textfont=dict(size=9, color="#1e3c72"),
-            hovertemplate=f"<b>{lugar['icono']} {nombre}</b><br>{lugar['tipo']}<br>📏 {lugar['alt']} msnm<br><extra></extra>",
-            name=nombre,
+            name=nombre,  # Esto es lo que se usa para identificar el clic
+            hovertemplate=f"<b>{lugar['icono']} {nombre}</b><br>{lugar['tipo']}<br>{lugar['alt']} msnm<extra></extra>",
             showlegend=False
         ))
     
-    # ===== RUTAS =====
+    # ===== RUTA VEHICULAR =====
     if tipo_ruta in ["vehicular", "todas"]:
-        coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
+        coords = []
+        for l in RUTA_VEHICULAR:
+            if l in LUGARES_SAGRADOS:
+                coords.append(LUGARES_SAGRADOS[l])
         if coords:
             fig.add_trace(go.Scattermapbox(
                 lat=[c["lat"] for c in coords],
                 lon=[c["lon"] for c in coords],
-                mode="lines+markers",
-                line=dict(width=4, color="#e67e22"),
-                marker=dict(size=6, color="#e67e22"),
-                name="🚌 Ruta vehicular"
+                mode="lines",
+                line=dict(width=3, color="#e67e22"),
+                name="🚌 Ruta vehicular",
+                hoverinfo="none"
             ))
     
+    # ===== RUTA LOMADA =====
     if tipo_ruta in ["lomada", "todas"]:
-        coords = [LUGARES_SAGRADOS[l] for l in RUTA_LOMADA if l in LUGARES_SAGRADOS]
+        coords = []
+        for l in RUTA_LOMADA:
+            if l in LUGARES_SAGRADOS:
+                coords.append(LUGARES_SAGRADOS[l])
         if coords:
             fig.add_trace(go.Scattermapbox(
                 lat=[c["lat"] for c in coords],
                 lon=[c["lon"] for c in coords],
-                mode="lines+markers",
-                line=dict(width=4, color="#8e44ad"),
-                marker=dict(size=6, color="#8e44ad"),
-                name="🚶 Lomada (24h)"
+                mode="lines",
+                line=dict(width=3, color="#8e44ad"),
+                name="🚶 Lomada (24h)",
+                hoverinfo="none"
             ))
     
-    # ===== CONFIGURACIÓN =====
+    # ===== CONFIGURACIÓN SIMPLE =====
     fig.update_layout(
         mapbox=dict(
             style="carto-positron",
             center=dict(lat=-13.55, lon=-71.4),
-            zoom=7.8,
+            zoom=7.8
         ),
         margin=dict(l=0, r=0, t=0, b=0),
-        height=650,
+        height=600,
         clickmode='event+select',
-        showlegend=True,
-        legend=dict(
-            yanchor="top", y=0.99, xanchor="left", x=0.01,
-            bgcolor="rgba(255,255,255,0.9)"
-        )
+        showlegend=True
     )
     
     return fig
@@ -631,25 +627,14 @@ def main():
     
     # ===== TAB 1: MAPA CON LUGARES CLICKEABLES =====
     with tab1:
-        st.markdown("""
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="margin: 0;">🗺️ Explora los lugares sagrados</h3>
-            <span style="background: #e67e22; color: white; padding: 4px 16px; border-radius: 30px; font-size: 0.9rem;">
-                🖱️ 16 lugares clickeables
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
+        # En el tab1, reemplaza TODO el código del mapa con esto:
+
+        st.markdown("### 🗺️ Explora los lugares sagrados")
         
-        # Controles del mapa
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            tipo_ruta = st.radio(
-                "Mostrar rutas:",
-                ["Todas", "Vehicular", "Lomada"],
-                horizontal=True
-            )
+        # Control de rutas
+        tipo_ruta = st.radio("Mostrar rutas:", ["Todas", "Vehicular", "Lomada"], horizontal=True)
         
-        # Inicializar estado del lugar seleccionado
+        # Estado del lugar seleccionado
         if 'lugar_seleccionado' not in st.session_state:
             st.session_state.lugar_seleccionado = None
         
@@ -659,37 +644,57 @@ def main():
             lugar_seleccionado=st.session_state.lugar_seleccionado
         )
         
-        # Configurar captura de clicks
-        event = st.plotly_chart(mapa, use_container_width=True, on_select="rerun", key="mapa")
+        # Mostrar mapa y capturar clics
+        event = st.plotly_chart(mapa, use_container_width=True, key="mapa", on_select="rerun")
         
-        # Procesar click en el mapa
-        if event and "selection" in event and "points" in event["selection"]:
-            points = event["selection"]["points"]
+        # Procesar clic - VERSIÓN SIMPLIFICADA
+        if event and "selection" in event:
+            points = event["selection"].get("points", [])
             if points:
-                # El nombre del lugar está en el campo 'name' del trace
-                lugar_nombre = points[0].get("name")
-                # Ignorar clicks en las rutas
-                if lugar_nombre and lugar_nombre not in ["🚌 Ruta vehicular", "🚶 Lomada (24h)"]:
-                    st.session_state.lugar_seleccionado = lugar_nombre
-                    st.rerun()  # Forzar actualización
+                punto = points[0]
+                # El nombre está directamente en 'name'
+                nombre_lugar = punto.get("name")
+                # Ignorar si es una ruta
+                if nombre_lugar and nombre_lugar not in ["🚌 Ruta vehicular", "🚶 Lomada (24h)"]:
+                    st.session_state.lugar_seleccionado = nombre_lugar
+                    st.rerun()
         
-        # Layout de dos columnas: mapa y panel de información
+        # Layout de dos columnas
         col_map, col_info = st.columns([2, 1])
         
         with col_map:
+            # Leyenda simple
             st.markdown("""
-            <div style="background: white; padding: 12px; border-radius: 12px; margin-top: 20px;">
-                <span style="font-weight: 600; color: #1e3c72;">📍 Leyenda rápida:</span><br>
-                <span style="font-size: 0.9rem; color: #5d6d7e;">
-                🚌 Ruta vehicular (naranja) · 🚶 Lomada (morada) · 
-                ✨ Marcador con borde dorado = lugar seleccionado
-                </span>
+            <div style="background: white; padding: 12px; border-radius: 12px; margin-top: 10px;">
+                <span style="font-weight: 600; color: #1e3c72;">📍 Leyenda:</span><br>
+                <span style="font-size: 0.9rem;">🚌 Ruta vehicular (naranja) · 🚶 Lomada (morada)</span><br>
+                <span style="font-size: 0.9rem;">✨ Marcador más grande = lugar seleccionado</span>
             </div>
             """, unsafe_allow_html=True)
         
         with col_info:
-            # Mostrar panel del lugar seleccionado
-            mostrar_panel_lugar(st.session_state.lugar_seleccionado)
+            # Mostrar información del lugar seleccionado
+            if st.session_state.lugar_seleccionado and st.session_state.lugar_seleccionado in LUGARES_SAGRADOS:
+                lugar = LUGARES_SAGRADOS[st.session_state.lugar_seleccionado]
+                st.markdown(f"""
+                <div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                    <h3 style="margin: 0 0 8px 0; color: #1e3c72;">{lugar['icono']} {st.session_state.lugar_seleccionado}</h3>
+                    <p style="color: #e67e22; font-weight: 600; margin: 0 0 16px 0;">{lugar['tipo']}</p>
+                    <p style="color: #2c3e50; line-height: 1.6;">{lugar['descripcion']}</p>
+                    <div style="background: #f8f9fa; padding: 16px; border-radius: 12px; margin-top: 16px;">
+                        <p style="margin: 0;"><b>📏 Altitud:</b> {lugar['alt']:,} msnm</p>
+                        <p style="margin: 8px 0 0 0;"><b>🕯️ Ritual:</b> {lugar.get('ritual', 'No especificado')}</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background: white; border-radius: 16px; padding: 32px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                    <div style="font-size: 3rem; margin-bottom: 16px;">🗺️</div>
+                    <h4 style="color: #1e3c72; margin-bottom: 8px;">Haz clic en cualquier lugar del mapa</h4>
+                    <p style="color: #5d6d7e;">Selecciona un marcador para ver información detallada</p>
+                </div>
+                """, unsafe_allow_html=True)
     
     # ===== TAB 2: PREGUNTAS =====
     with tab2:
