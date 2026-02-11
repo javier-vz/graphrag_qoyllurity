@@ -288,7 +288,7 @@ def cargar_conocimiento():
         from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
         
         # Cargar con la ruta correcta
-        ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
+        ttl_path = "qoyllurity.ttl"
         if not Path(ttl_path).exists():
             st.warning(f"⚠️ No se encontró el archivo TTL en: {ttl_path}")
             return None
