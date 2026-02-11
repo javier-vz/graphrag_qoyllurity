@@ -405,10 +405,10 @@ def crear_mapa_mejorado(tipo_ruta="todas", estilo_mapa="satelite", token_mapbox=
             lon=df_tipo["lon"],
             mode="markers+text",
             marker=dict(
-                size=df_tipo["tamano"],
-                color=COLORES.get(tipo, "#000000"),
-                symbol=df_tipo["icono"],
-                allowoverlap=False
+                    size=df_tipo["tamano"].iloc[0] if len(df_tipo) > 0 else 10,
+                    color=COLORES.get(tipo, "#000000"),
+                    symbol=ICONOS.get(tipo, "marker"),  # ✅ USAR EL DICCIONARIO DIRECTO
+                    allowoverlap=False
             ),
             text=df_tipo["nombre"],
             textposition="top center",
@@ -484,9 +484,13 @@ def crear_mapa_mejorado(tipo_ruta="todas", estilo_mapa="satelite", token_mapbox=
 # ============================================================================
 # PERFIL DE ALTITUD MEJORADO - CON ZONAS Y PENDIENTE
 # ============================================================================
+# ============================================================================
+# PERFIL DE ALTITUD MEJORADO - VERSIÓN CORREGIDA PARA PYTHON 3.13
+# ============================================================================
 def crear_perfil_altitud_mejorado():
     """
     Crea perfil de altitud con zonas coloreadas y gráfico de pendiente
+    VERSIÓN CORREGIDA - compatible con Python 3.13 y Plotly actual
     """
     
     ruta_completa = [
@@ -515,80 +519,180 @@ def crear_perfil_altitud_mejorado():
         subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente del Terreno")
     )
     
-    # Perfil de altitud
-    fig.add_trace(go.Scatter(
-        x=df_ruta["dist"],
-        y=df_ruta["alt"],
-        mode="lines+markers",
-        line=dict(color="#1e3c72", width=4),
-        marker=dict(
-            size=8,
-            color=df_ruta["alt"],
-            colorscale="Viridis",
-            showscale=True,
-            colorbar=dict(title="msnm", x=1.05)
+    # ===== GRÁFICO PRINCIPAL: PERFIL DE ALTITUD =====
+    # Versión simplificada sin fillcolor problemático
+    fig.add_trace(
+        go.Scatter(
+            x=df_ruta["dist"],
+            y=df_ruta["alt"],
+            mode="lines+markers",
+            name="Perfil de altitud",
+            line=dict(color="#1e3c72", width=4),
+            marker=dict(
+                size=10,
+                color=df_ruta["alt"],
+                colorscale="Viridis",
+                showscale=True,
+                colorbar=dict(title="msnm", x=1.05, len=0.5)
+            ),
+            text=df_ruta["lugar"],
+            hovertemplate="<b>%{text}</b><br>" +
+                         "📏 Distancia: %{x:.0f} km<br>" +
+                         "🏔️ Altitud: %{y:.0f} msnm<br>" +
+                         "<extra></extra>"
         ),
-        fill="tozeroy",
-        fillcolor="rgba(30,60,114,0.1)",
-        name="Perfil",
-        text=df_ruta["lugar"],
-        hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>",
         row=1, col=1
-    ))
+    )
     
-    # Zonas coloreadas
-    fig.add_vrect(x0=0, x1=85, fillcolor="rgba(46,204,113,0.1)", line_width=0, 
-                  annotation_text="🚌 Zona vehicular", annotation_position="top left", row=1, col=1)
-    fig.add_vrect(x0=85, x1=95, fillcolor="rgba(241,196,15,0.1)", line_width=0,
-                  annotation_text="🚶 Ascenso", annotation_position="top left", row=1, col=1)
-    fig.add_vrect(x0=95, x1=125, fillcolor="rgba(155,89,182,0.1)", line_width=0,
-                  annotation_text="🏔️ Lomada (24h)", annotation_position="top left", row=1, col=1)
+    # Zonas coloreadas usando add_vrect (más estable)
+    fig.add_vrect(
+        x0=0, x1=85,
+        fillcolor="rgba(46, 204, 113, 0.1)",
+        line_width=0,
+        annotation_text="🚌 Zona vehicular",
+        annotation_position="top left",
+        row=1, col=1
+    )
+    
+    fig.add_vrect(
+        x0=85, x1=95,
+        fillcolor="rgba(241, 196, 15, 0.1)",
+        line_width=0,
+        annotation_text="🚶 Ascenso",
+        annotation_position="top left",
+        row=1, col=1
+    )
+    
+    fig.add_vrect(
+        x0=95, x1=125,
+        fillcolor="rgba(155, 89, 182, 0.1)",
+        line_width=0,
+        annotation_text="🏔️ Lomada (24h)",
+        annotation_position="top left",
+        row=1, col=1
+    )
     
     # Hitos principales
-    hitos = df_ruta[df_ruta["lugar"].isin(["Paucartambo", "Mahuayani", "Santuario", "Tayancani"])]
-    fig.add_trace(go.Scatter(
-        x=hitos["dist"], y=hitos["alt"],
-        mode="markers+text",
-        marker=dict(size=14, color="#e67e22", symbol="star", line=dict(color="white", width=2)),
-        text=hitos["lugar"], textposition="top center",
-        name="Hitos principales", row=1, col=1
-    ))
+    hitos = ["Paucartambo", "Mahuayani", "Santuario", "Tayancani"]
+    df_hitos = df_ruta[df_ruta["lugar"].isin(hitos)]
     
-    # Gráfico de pendiente
+    fig.add_trace(
+        go.Scatter(
+            x=df_hitos["dist"],
+            y=df_hitos["alt"],
+            mode="markers+text",
+            marker=dict(
+                size=14,
+                color="#e67e22",
+                symbol="star",
+                line=dict(color="white", width=2)
+            ),
+            text=df_hitos["lugar"],
+            textposition="top center",
+            textfont=dict(size=11, color="#1e3c72"),
+            name="Hitos principales",
+            hovertemplate="<b>%{text}</b><br>📍 Punto clave<br>🏔️ %{y:.0f} msnm<extra></extra>"
+        ),
+        row=1, col=1
+    )
+    
+    # ===== GRÁFICO SECUNDARIO: PENDIENTE =====
+    # Calcular pendientes
     pendientes = []
     for i in range(1, len(df_ruta)):
-        pend = (df_ruta.loc[i, "alt"] - df_ruta.loc[i-1, "alt"]) / (df_ruta.loc[i, "dist"] - df_ruta.loc[i-1, "dist"])
+        delta_dist = df_ruta.loc[i, "dist"] - df_ruta.loc[i-1, "dist"]
+        delta_alt = df_ruta.loc[i, "alt"] - df_ruta.loc[i-1, "alt"]
+        pendiente = (delta_alt / delta_dist) * 100 if delta_dist > 0 else 0
+        
         pendientes.append({
             "x": (df_ruta.loc[i, "dist"] + df_ruta.loc[i-1, "dist"]) / 2,
-            "pend": pend * 100
+            "pendiente": pendiente,
+            "inicio": df_ruta.loc[i-1, "lugar"],
+            "fin": df_ruta.loc[i, "lugar"]
         })
     
     df_pend = pd.DataFrame(pendientes)
-    colors = ['#27ae60' if p > 0 else '#e74c3c' for p in df_pend["pend"]]
     
-    fig.add_trace(go.Bar(
-        x=df_pend["x"], y=df_pend["pend"],
-        marker_color=colors,
-        name="Pendiente",
-        hovertemplate="Pendiente: %{y:.1f}%<extra></extra>",
+    # Colores según pendiente
+    colors = ['#27ae60' if p >= 0 else '#e74c3c' for p in df_pend["pendiente"]]
+    
+    fig.add_trace(
+        go.Bar(
+            x=df_pend["x"],
+            y=df_pend["pendiente"],
+            marker_color=colors,
+            name="Pendiente",
+            hovertemplate="<b>%{customdata[0]} → %{customdata[1]}</b><br>" +
+                         "📊 Pendiente: %{y:.1f}%<br>" +
+                         "<extra></extra>",
+            customdata=df_pend[["inicio", "fin"]].values,
+            showlegend=False
+        ),
         row=2, col=1
-    ))
+    )
     
-    fig.add_hline(y=0, line_dash="dash", line_color="#7f8c8d", opacity=0.5, row=2, col=1)
+    # Línea de referencia en 0%
+    fig.add_hline(
+        y=0,
+        line_dash="dash",
+        line_color="#7f8c8d",
+        opacity=0.5,
+        row=2, col=1
+    )
     
+    # ===== CONFIGURACIÓN DEL LAYOUT =====
     fig.update_layout(
         height=700,
         hovermode="x unified",
         plot_bgcolor="white",
         paper_bgcolor="white",
+        font=dict(family="Inter, sans-serif", size=12),
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="#e9ecef",
+            borderwidth=1
+        ),
+        margin=dict(l=60, r=60, t=60, b=60)
     )
     
-    fig.update_xaxes(title_text="Distancia (km)", gridcolor="#e9ecef", row=1, col=1)
-    fig.update_yaxes(title_text="Altitud (msnm)", gridcolor="#e9ecef", row=1, col=1)
-    fig.update_xaxes(title_text="Distancia (km)", gridcolor="#e9ecef", row=2, col=1)
-    fig.update_yaxes(title_text="Pendiente (%)", gridcolor="#e9ecef", row=2, col=1)
+    # Configuración de ejes
+    fig.update_xaxes(
+        title_text="Distancia (km)",
+        gridcolor="#e9ecef",
+        showgrid=True,
+        gridwidth=1,
+        row=1, col=1
+    )
+    
+    fig.update_yaxes(
+        title_text="Altitud (msnm)",
+        gridcolor="#e9ecef",
+        showgrid=True,
+        gridwidth=1,
+        row=1, col=1
+    )
+    
+    fig.update_xaxes(
+        title_text="Distancia (km)",
+        gridcolor="#e9ecef",
+        showgrid=True,
+        gridwidth=1,
+        row=2, col=1
+    )
+    
+    fig.update_yaxes(
+        title_text="Pendiente (%)",
+        gridcolor="#e9ecef",
+        showgrid=True,
+        gridwidth=1,
+        row=2, col=1
+    )
     
     return fig
 
