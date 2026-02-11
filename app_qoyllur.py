@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-📱 Qoyllur Rit'i Explorer - VERSIÓN FOLIUM (SOLO PUNTOS)
-✅ FOLIUM - SIEMPRE FUNCIONA
-✅ SOLO PUNTOS NEGROS GRANDES EN EL MAPA
-✅ LUGARES DIRECTAMENTE DEL TTL
-✅ SIN RUTAS, SIN COMPLICACIONES
+📱 Qoyllur Rit'i Explorer - VERSIÓN FOLIUM COMPLETA
+✅ FOLIUM - PUNTOS DE COLORES CON POPUPS DEL TTL
+✅ PERFIL DE ALTITUD CORREGIDO
+✅ INFO DIRECTAMENTE DEL TTL (rdfs:comment)
 """
 
 import streamlit as st
@@ -60,11 +59,11 @@ TOP_10_PREGUNTAS = [
 ]
 
 # ============================================================================
-# CARGAR LUGARES DEL TTL
+# CARGAR LUGARES DEL TTL CON TODA LA INFO
 # ============================================================================
 @st.cache_resource
 def cargar_lugares_desde_ttl():
-    """Extrae TODOS los lugares con coordenadas del TTL"""
+    """Extrae TODOS los lugares con coordenadas y descripciones del TTL"""
     ttl_path = "qoyllurity.ttl"
     if not Path(ttl_path).exists():
         return {}
@@ -77,7 +76,10 @@ def cargar_lugares_desde_ttl():
         lat = None
         lon = None
         nombre = None
+        descripcion = ""
+        comentario = ""
         
+        # Buscar coordenadas
         for p, o in g.predicate_objects(s):
             p_str = str(p)
             if 'lat' in p_str.lower():
@@ -88,6 +90,7 @@ def cargar_lugares_desde_ttl():
                 except: pass
         
         if lat and lon:
+            # Buscar nombre (label)
             for o in g.objects(s, RDFS.label):
                 if isinstance(o, Literal) and o.language == 'es':
                     nombre = str(o)
@@ -95,10 +98,25 @@ def cargar_lugares_desde_ttl():
             if not nombre:
                 nombre = str(s).split('#')[-1]
             
+            # Buscar descripción (tieneDescripcion)
+            for p, o in g.predicate_objects(s):
+                if 'tieneDescripcion' in str(p):
+                    if isinstance(o, Literal):
+                        descripcion = str(o)
+                        break
+            
+            # Buscar comentario (rdfs:comment)
+            for o in g.objects(s, RDFS.comment):
+                if isinstance(o, Literal) and o.language == 'es':
+                    comentario = str(o)
+                    break
+            
             lugares[nombre] = {
                 "lat": lat,
                 "lon": lon,
-                "nombre": nombre
+                "nombre": nombre,
+                "descripcion": descripcion,
+                "comentario": comentario
             }
     
     return lugares
@@ -116,12 +134,11 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15("qoyllurity.ttl")
 
 # ============================================================================
-# MAPA CON FOLIUM - PUNTOS DE COLORES Y POPUPS BONITOS
+# MAPA CON FOLIUM - PUNTOS DE COLORES Y POPUPS DEL TTL
 # ============================================================================
 def crear_mapa_folium():
-    """Crea mapa con Folium - puntos de colores, popups con info"""
+    """Crea mapa con Folium - puntos de colores, popups con info del TTL"""
     
-    # Centro del mapa
     mapa = folium.Map(
         location=[-13.55, -71.4],
         zoom_start=8,
@@ -129,116 +146,130 @@ def crear_mapa_folium():
         tiles='OpenStreetMap'
     )
     
-    # Diccionario de colores por tipo de lugar (inferido del nombre)
-    colores = {
-        'santuario': 'red',
-        'glaciar': 'lightblue',
-        'cruz': 'green',
-        'iglesia': 'orange',
-        'plaza': 'purple',
-        'pueblo': 'blue',
-        'cementerio': 'gray',
-        'laguna': 'cadetblue',
-        'descanso': 'darkpurple',
-        'inicio': 'darkgreen',
-        'capilla': 'orange',
-        'gruta': 'darkred'
-    }
-    
-    # Iconos por tipo
-    iconos = {
-        'santuario': '🏔️',
-        'glaciar': '❄️',
-        'cruz': '✝️',
-        'iglesia': '⛪',
-        'plaza': '🎭',
-        'pueblo': '🏘️',
-        'cementerio': '🕊️',
-        'laguna': '💧',
-        'descanso': '😴',
-        'inicio': '🚩',
-        'capilla': '⛪',
-        'gruta': '🕯️'
-    }
-    
     for nombre, lugar in LUGARES_TTL.items():
-        # Determinar color e icono según el nombre
+        # Determinar color según el nombre
         color = 'blue'
-        icono = '📍'
-        
         nombre_lower = nombre.lower()
         
         if 'santuario' in nombre_lower:
             color = 'red'
-            icono = '🏔️'
         elif 'colque' in nombre_lower or 'glaciar' in nombre_lower:
             color = 'lightblue'
-            icono = '❄️'
         elif 'cruz' in nombre_lower:
             color = 'green'
-            icono = '✝️'
         elif 'iglesia' in nombre_lower:
             color = 'orange'
-            icono = '⛪'
         elif 'plaza' in nombre_lower:
             color = 'purple'
-            icono = '🎭'
         elif 'cementerio' in nombre_lower:
             color = 'gray'
-            icono = '🕊️'
         elif 'yanaqocha' in nombre_lower or 'laguna' in nombre_lower:
             color = 'cadetblue'
-            icono = '💧'
         elif 'yanaqancha' in nombre_lower or 'descanso' in nombre_lower:
             color = 'darkpurple'
-            icono = '😴'
         elif 'mahuayani' in nombre_lower or 'inicio' in nombre_lower:
             color = 'darkgreen'
-            icono = '🚩'
         elif 'capilla' in nombre_lower:
             color = 'orange'
-            icono = '⛪'
         elif 'gruta' in nombre_lower:
             color = 'darkred'
-            icono = '🕯️'
+        elif 'caicay' in nombre_lower or 'ccatcca' in nombre_lower or 'ocongate' in nombre_lower:
+            color = 'cadetblue'
         
-        # Crear popup con HTML bonito
+        # Usar la descripción del TTL
+        info_texto = lugar['descripcion'] if lugar['descripcion'] else lugar['comentario']
+        if not info_texto:
+            info_texto = "Lugar sagrado de la peregrinación"
+        
+        # Popup con HTML bonito
         popup_html = f"""
-        <div style="font-family: 'Inter', sans-serif; min-width: 200px;">
-            <h4 style="color: #1e3c72; margin: 0 0 8px 0;">{icono} {nombre}</h4>
-            <hr style="margin: 8px 0; border: 1px solid #e67e22;">
-            <p style="margin: 8px 0; color: #2c3e50;">
-                <b>📍 Coordenadas:</b><br>
-                {lugar['lat']:.4f}, {lugar['lon']:.4f}
+        <div style="font-family: 'Inter', sans-serif; min-width: 250px; padding: 5px;">
+            <h4 style="color: #1e3c72; margin: 0 0 5px 0; border-bottom: 2px solid #e67e22; padding-bottom: 5px;">
+                {nombre}
+            </h4>
+            <p style="margin: 8px 0; color: #2c3e50; font-size: 13px;">
+                {info_texto}
             </p>
+            <p style="margin: 8px 0; color: #666; font-size: 12px; background: #f8f9fa; padding: 5px; border-radius: 4px;">
+                📍 {lugar['lat']:.4f}, {lugar['lon']:.4f}
+            </p>
+        </div>
         """
         
-        # Agregar descripción si existe
-        if 'descripcion' in lugar and lugar['descripcion']:
-            popup_html += f"""
-            <p style="margin: 8px 0; color: #2c3e50;">
-                <b>📝 Descripción:</b><br>
-                {lugar['descripcion']}
-            </p>
-            """
-        
-        popup_html += "</div>"
-        
-        # Agregar marcador
         folium.Marker(
             location=[lugar["lat"], lugar["lon"]],
             popup=folium.Popup(popup_html, max_width=300),
             tooltip=nombre,
-            icon=folium.Icon(color=color, icon='info-sign')
+            icon=folium.Icon(color=color, icon='info-sign', prefix='glyphicon')
         ).add_to(mapa)
     
     return mapa
 
 # ============================================================================
+# PERFIL DE ALTITUD - CORREGIDO
+# ============================================================================
+def crear_perfil_altitud():
+    """Perfil de altitud con datos reales de la peregrinación"""
+    
+    ruta = [
+        {"lugar": "Paucartambo", "dist": 0, "alt": 2900},
+        {"lugar": "Huancarani", "dist": 25, "alt": 3500},
+        {"lugar": "Ccatcca", "dist": 45, "alt": 3700},
+        {"lugar": "Ocongate", "dist": 65, "alt": 3800},
+        {"lugar": "Mahuayani", "dist": 85, "alt": 4200},
+        {"lugar": "Santuario", "dist": 95, "alt": 4800},
+        {"lugar": "MachuCruz", "dist": 98, "alt": 4900},
+        {"lugar": "Yanaqocha", "dist": 102, "alt": 4850},
+        {"lugar": "Yanaqancha", "dist": 106, "alt": 4750},
+        {"lugar": "QespiCruz", "dist": 115, "alt": 4600},
+        {"lugar": "IntiLloksimuy", "dist": 120, "alt": 4500},
+        {"lugar": "Tayancani", "dist": 125, "alt": 3800}
+    ]
+    
+    df = pd.DataFrame(ruta)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=df["dist"],
+        y=df["alt"],
+        mode="lines+markers",
+        line=dict(color="#1e3c72", width=4),
+        marker=dict(size=12, color="#e67e22", symbol="circle"),
+        text=df["lugar"],
+        hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>"
+    ))
+    
+    # Agregar zonas
+    fig.add_vrect(x0=0, x1=85, fillcolor="rgba(46,204,113,0.1)", line_width=0, 
+                  annotation_text="🚌 Zona vehicular", annotation_position="top left")
+    fig.add_vrect(x0=85, x1=95, fillcolor="rgba(241,196,15,0.1)", line_width=0,
+                  annotation_text="🚶 Ascenso", annotation_position="top left")
+    fig.add_vrect(x0=95, x1=125, fillcolor="rgba(155,89,182,0.1)", line_width=0,
+                  annotation_text="🏔️ Lomada (24h)", annotation_position="top left")
+    
+    fig.update_layout(
+        title="⛰️ Perfil de Altitud de la Peregrinación",
+        xaxis_title="Distancia (km)",
+        yaxis_title="Altitud (msnm)",
+        height=500,
+        hovermode="x unified",
+        plot_bgcolor="white",
+        font=dict(family="Inter", size=12),
+        showlegend=False,
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+    
+    fig.update_xaxes(gridcolor="#e9ecef", gridwidth=1)
+    fig.update_yaxes(gridcolor="#e9ecef", gridwidth=1)
+    
+    return fig
+
+# ============================================================================
 # APP PRINCIPAL
 # ============================================================================
 def main():
-    st.markdown("""
+    st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
         <div style="font-size: 4rem;">🏔️</div>
         <div>
@@ -246,7 +277,7 @@ def main():
                 Qoyllur Rit'i Explorer
             </h1>
             <p style="margin: 0; color: #7f8c8d; font-size: 1.2rem;">
-                Conocimiento ancestral · Mapas con Folium · Sinakara, Cusco
+                Conocimiento ancestral · Mapas interactivos · Sinakara, Cusco
             </p>
             <p style="margin: 5px 0 0 0; color: #e67e22; font-size: 0.9rem;">
                 🗺️ {len(LUGARES_TTL)} lugares sagrados cargados desde el TTL
@@ -255,7 +286,6 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar
     with st.sidebar:
         st.markdown("### 🏔️ Qoyllur Rit'i")
         st.markdown(f"""
@@ -270,14 +300,13 @@ def main():
         
         st.markdown("---")
         st.markdown("""
-        ### 🗺️ Mapa con Folium
-        - **Puntos negros** = lugares sagrados
-        - **Click** en cada punto para ver nombre
-        - Sin tokens, sin Mapbox, sin errores
+        ### 🗺️ Sobre el mapa
+        - **Click en los marcadores** para ver información del TTL
+        - **Colores por tipo** de lugar sagrado
+        - Descripciones directas del archivo TTL
         """)
     
-    # Tabs
-    tab1, tab2, tab3 = st.tabs(["❓ Preguntas", "🗺️ Mapa (Folium)", "⛰️ Perfil"])
+    tab1, tab2, tab3 = st.tabs(["❓ Preguntas", "🗺️ Mapa TTL", "⛰️ Perfil"])
     
     # ===== TAB 1: PREGUNTAS =====
     with tab1:
@@ -318,7 +347,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
     
-    # ===== TAB 2: MAPA CON FOLIUM - SOLO PUNTOS NEGROS =====
+    # ===== TAB 2: MAPA CON FOLIUM =====
     with tab2:
         st.markdown(f"### 🗺️ Mapa de lugares sagrados ({len(LUGARES_TTL)} puntos)")
         
@@ -326,20 +355,16 @@ def main():
             st.error("❌ No se encontraron lugares con coordenadas en el TTL")
             st.stop()
         
-        # Crear mapa con Folium
         mapa = crear_mapa_folium()
-        
-        # Mostrar mapa
         st_data = st_folium(mapa, width="100%", height=600)
         
-        # Métricas simples
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("📍 Lugares TTL", len(LUGARES_TTL))
         with col2:
             st.metric("🏔️ Altitud máxima", "5,200 msnm")
         with col3:
-            st.metric("🗺️ Tecnología", "Folium (sin errores)")
+            st.metric("📝 Info del TTL", "Click en marcadores")
     
     # ===== TAB 3: PERFIL =====
     with tab3:
