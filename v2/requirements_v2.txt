@@ -1,0 +1,21 @@
+# GraphRAG v2.0 - Requirements
+# Optimizado para Raspberry Pi 5 (8GB)
+
+# Base (igual que v1.5)
+rdflib>=7.0.0
+
+# Embeddings y búsqueda semántica
+sentence-transformers>=2.2.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
+
+# Opcional pero recomendado
+torch>=2.0.0  # Backend para sentence-transformers
+transformers>=4.30.0
+
+# Para optimización (opcional)
+# faiss-cpu>=1.7.0  # Si necesitas escalar a millones de vectores
+# onnxruntime>=1.15.0  # Para acelerar inferencia
+
+# Desarrollo y testing
+tqdm>=4.65.0
