@@ -266,39 +266,74 @@ def cargar_conocimiento():
 # ============================================================================
 
 # ============================================================================
-# MAPA CON LUGARES - VERSIÓN DIAGNÓSTICO
+# MAPA CON LUGARES - VERSIÓN QUE SÍ FUNCIONA EN STREAMLIT CLOUD
 # ============================================================================
 def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
-    """Mapa con diagnóstico para ver por qué no se ven los lugares"""
+    """Mapa con lugares - USANDO open-street-map que SIEMPRE funciona"""
     
     fig = go.Figure()
     
-    # ===== 1. PRIMERO SOLO UN LUGAR DE PRUEBA =====
-    # Si esto se ve, el problema es de datos
-    # Si no se ve, el problema es de configuración del mapa
+    # 1. PRIMERO LAS RUTAS
+    if tipo_ruta in ["vehicular", "todas"]:
+        coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
+        if coords:
+            fig.add_trace(go.Scattermapbox(
+                lat=[c["lat"] for c in coords],
+                lon=[c["lon"] for c in coords],
+                mode="lines",
+                line=dict(width=3, color="#e67e22"),
+                name="Ruta vehicular",
+                hoverinfo="skip"
+            ))
     
-    fig.add_trace(go.Scattermapbox(
-        lat=[-13.3127],  # Paucartambo
-        lon=[-71.6146],
-        mode="markers",
-        marker=dict(
-            size=30,  # GIGANTE
-            color="red",
-            symbol="marker"
-        ),
-        name="🔴 PUNTO DE PRUEBA",
-        showlegend=True
-    ))
+    if tipo_ruta in ["lomada", "todas"]:
+        coords = [LUGARES_SAGRADOS[l] for l in RUTA_LOMADA if l in LUGARES_SAGRADOS]
+        if coords:
+            fig.add_trace(go.Scattermapbox(
+                lat=[c["lat"] for c in coords],
+                lon=[c["lon"] for c in coords],
+                mode="lines",
+                line=dict(width=3, color="#8e44ad"),
+                name="Ruta Lomada",
+                hoverinfo="skip"
+            ))
     
-    # ===== 2. CONFIGURACIÓN BÁSICA =====
+    # 2. LUEGO LOS LUGARES - CON TAMAÑO GRANDE
+    for nombre, lugar in LUGARES_SAGRADOS.items():
+        tamanio = 18
+        if lugar_seleccionado == nombre:
+            tamanio = 24
+            
+        fig.add_trace(go.Scattermapbox(
+            lat=[lugar["lat"]],
+            lon=[lugar["lon"]],
+            mode="markers",
+            marker=dict(
+                size=tamanio,
+                color=lugar["color"],
+                symbol="marker",
+                line=dict(width=2, color="white")
+            ),
+            name=nombre,
+            hovertemplate=f"""
+            <b>{lugar['icono']} {nombre}</b><br>
+            {lugar['tipo']}<br>
+            {lugar['alt']} msnm<br>
+            <extra></extra>
+            """,
+            showlegend=False
+        ))
+    
+    # 3. CONFIGURACIÓN - CAMBIO CLAVE AQUÍ
     fig.update_layout(
         mapbox=dict(
-            style="carto-positron",
+            style="open-street-map",  # ✅ ESTO SIEMPRE FUNCIONA
             center=dict(lat=-13.55, lon=-71.4),
-            zoom=7.8
+            zoom=7.5
         ),
         margin=dict(l=0, r=0, t=0, b=0),
-        height=600
+        height=600,
+        clickmode='event+select'
     )
     
     return fig
