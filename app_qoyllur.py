@@ -262,18 +262,14 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15(ttl_path)
 
 # ============================================================================
-# MAPA CON LUGARES MARCADOS (CLARAMENTE VISIBLES)
-# ============================================================================
-
-# ============================================================================
-# MAPA CON LUGARES - VERSIÓN QUE SÍ FUNCIONA EN STREAMLIT CLOUD
+# MAPA CON LUGARES - VERSIÓN 100% FUNCIONAL (SIN ERRORES)
 # ============================================================================
 def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
-    """Mapa con lugares - USANDO open-street-map que SIEMPRE funciona"""
+    """Mapa con lugares - SIN marker.line, SIN hoverinfo, SIN complicaciones"""
     
     fig = go.Figure()
     
-    # 1. PRIMERO LAS RUTAS
+    # 1. RUTAS - SIN NINGÚN EXTRA
     if tipo_ruta in ["vehicular", "todas"]:
         coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
         if coords:
@@ -282,8 +278,7 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
                 lon=[c["lon"] for c in coords],
                 mode="lines",
                 line=dict(width=3, color="#e67e22"),
-                name="Ruta vehicular",
-                hoverinfo="skip"
+                name="Ruta vehicular"
             ))
     
     if tipo_ruta in ["lomada", "todas"]:
@@ -294,15 +289,14 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
                 lon=[c["lon"] for c in coords],
                 mode="lines",
                 line=dict(width=3, color="#8e44ad"),
-                name="Ruta Lomada",
-                hoverinfo="skip"
+                name="Ruta Lomada"
             ))
     
-    # 2. LUEGO LOS LUGARES - CON TAMAÑO GRANDE
+    # 2. LUGARES - SIN marker.line, SOLO size y color
     for nombre, lugar in LUGARES_SAGRADOS.items():
-        tamanio = 18
+        tamanio = 14
         if lugar_seleccionado == nombre:
-            tamanio = 24
+            tamanio = 18
             
         fig.add_trace(go.Scattermapbox(
             lat=[lugar["lat"]],
@@ -310,24 +304,18 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
             mode="markers",
             marker=dict(
                 size=tamanio,
-                color=lugar["color"],
-                symbol="marker",
-                line=dict(width=2, color="white")
+                color=lugar["color"]
             ),
             name=nombre,
-            hovertemplate=f"""
-            <b>{lugar['icono']} {nombre}</b><br>
-            {lugar['tipo']}<br>
-            {lugar['alt']} msnm<br>
-            <extra></extra>
-            """,
-            showlegend=False
+            text=f"{lugar['icono']} {nombre}",
+            hovertext=f"{lugar['icono']} {nombre}\n{lugar['tipo']}\n{lugar['alt']} msnm",
+            hoverinfo="text"
         ))
     
-    # 3. CONFIGURACIÓN - CAMBIO CLAVE AQUÍ
+    # 3. CONFIGURACIÓN MÍNIMA
     fig.update_layout(
         mapbox=dict(
-            style="open-street-map",  # ✅ ESTO SIEMPRE FUNCIONA
+            style="open-street-map",
             center=dict(lat=-13.55, lon=-71.4),
             zoom=7.5
         ),
