@@ -84,7 +84,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# EXTRAER LUGARES DIRECTAMENTE DEL TTL
+# EXTRAER LUGARES DIRECTAMENTE DEL TTL - VERSIÓN CORREGIDA
 # ============================================================================
 @st.cache_resource
 def cargar_lugares_desde_ttl():
@@ -100,32 +100,50 @@ def cargar_lugares_desde_ttl():
     g.parse(ttl_path, format='turtle')
     
     lugares = {}
-    ns = "http://example.org/festividades#"
     
-    for s in g.subjects(RDF.type, URIRef(ns + "Lugar")):
-        nombre = str(s).split('#')[-1]
-        
-        lat = None
-        lon = None
-        alt = 0
-        tipo = "Lugar sagrado"
-        
-        for p, o in g.predicate_objects(s):
-            if str(p).endswith('lat'):
-                lat = float(o)
-            if str(p).endswith('long'):
-                lon = float(o)
-            if str(p).endswith('comment'):
-                desc = str(o)
-        
-        if lat and lon:
-            lugares[nombre] = {
-                "lat": lat,
-                "lon": lon,
-                "alt": alt,
-                "tipo": tipo,
-                "nombre": nombre
-            }
+    # Buscar todos los individuos de tipo Lugar
+    for s in g.subjects(RDF.type, None):
+        tipo = str(g.value(s, RDF.type))
+        if 'Lugar' in tipo or 'Lugar' in str(s):
+            nombre = str(s).split('#')[-1]
+            
+            lat = None
+            lon = None
+            
+            # Buscar anotaciones de lat/long
+            for p, o in g.predicate_objects(s):
+                if 'lat' in str(p):
+                    try:
+                        lat = float(o)
+                    except:
+                        pass
+                if 'long' in str(p) or 'lon' in str(p):
+                    try:
+                        lon = float(o)
+                    except:
+                        pass
+            
+            # También buscar en el grafo completo
+            for _, p, o in g.triples((s, None, None)):
+                if 'lat' in str(p):
+                    try:
+                        lat = float(o)
+                    except:
+                        pass
+                if 'long' in str(p) or 'lon' in str(p):
+                    try:
+                        lon = float(o)
+                    except:
+                        pass
+            
+            if lat and lon:
+                lugares[nombre] = {
+                    "lat": lat,
+                    "lon": lon,
+                    "alt": 0,
+                    "nombre": nombre
+                }
+                print(f"✅ Cargado: {nombre} - {lat}, {lon}")  # Debug
     
     return lugares
 
