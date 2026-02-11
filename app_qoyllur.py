@@ -503,29 +503,27 @@ def main():
     with tab2:
         st.markdown("### 🗺️ Lugares sagrados de la peregrinación")
         
-        # Controles
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            tipo_ruta = st.radio(
-                "Mostrar rutas:",
-                ["Todas", "Vehicular", "Lomada"],
-                horizontal=True
-            )
+        # Selector de rutas
+        tipo_ruta = st.radio(
+            "Mostrar rutas:",
+            ["Todas", "Vehicular", "Lomada"],
+            horizontal=True
+        )
         
         # Estado del lugar seleccionado
         if 'lugar_seleccionado' not in st.session_state:
             st.session_state.lugar_seleccionado = None
         
-        # Crear mapa con LUGARES GRANDES Y VISIBLES
+        # Crear mapa
         mapa = crear_mapa_con_lugares(
             tipo_ruta=tipo_ruta.lower(),
             lugar_seleccionado=st.session_state.lugar_seleccionado
         )
         
-        # Capturar click
+        # Mostrar mapa
         evento = st.plotly_chart(mapa, use_container_width=True, key="mapa", on_select="rerun")
         
-        # Procesar click
+        # Procesar click (solo para cambiar tamaño)
         if evento and "selection" in evento:
             puntos = evento["selection"].get("points", [])
             if puntos:
@@ -534,50 +532,20 @@ def main():
                     st.session_state.lugar_seleccionado = nombre
                     st.rerun()
         
-        # Layout de dos columnas para mapa e info
-        col_mapa, col_info = st.columns([2, 1])
-        
-        with col_mapa:
-            # Leyenda de colores
-            st.markdown("""
-            <div style="background: white; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;">
-                <span style="font-weight: 600;">📍 Leyenda de colores:</span><br>
-                <span style="color: #1e3c72;">🔵 Pueblos</span> · 
-                <span style="color: #c0392b;">🔴 Iglesias</span> · 
-                <span style="color: #e67e22;">🟠 Plazas</span> · 
-                <span style="color: #27ae60;">🟢 Cruces</span> · 
-                <span style="color: #3498db;">🔵 Glaciares</span> · 
-                <span style="color: #8e44ad;">🟣 Descanso</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col_info:
-            # Información del lugar seleccionado
-            if st.session_state.lugar_seleccionado and st.session_state.lugar_seleccionado in LUGARES_SAGRADOS:
-                lugar = LUGARES_SAGRADOS[st.session_state.lugar_seleccionado]
-                
-                st.markdown(f"""
-                <div class="info-panel" style="border-left-color: {lugar['color']};">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                        <span style="font-size: 2rem;">{lugar['icono']}</span>
-                        <span style="font-size: 1.3rem; font-weight: 700; color: {lugar['color']};">{st.session_state.lugar_seleccionado}</span>
-                    </div>
-                    <p style="color: #e67e22; font-weight: 600; margin-bottom: 12px;">{lugar['tipo']}</p>
-                    <p style="color: #2c3e50; line-height: 1.6;">{lugar['descripcion']}</p>
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-top: 16px;">
-                        <span style="font-weight: 600;">📏 Altitud:</span> {lugar['alt']:,} msnm<br>
-                        <span style="font-weight: 600;">🕯️ Ritual:</span> {lugar['ritual']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="background: white; border-radius: 16px; padding: 24px; text-align: center; border: 2px dashed #e67e22; height: 100%;">
-                    <div style="font-size: 2.5rem; margin-bottom: 16px;">🗺️</div>
-                    <h4 style="color: #1e3c72; margin-bottom: 8px;">Haz click en un lugar</h4>
-                    <p style="color: #666;">Selecciona cualquier marcador del mapa</p>
-                </div>
-                """, unsafe_allow_html=True)
+        # SOLO LEYENDA - SIN PANEL DE INFORMACIÓN
+        st.markdown("""
+        <div style="background: white; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;">
+            <span style="font-weight: 600;">📍 Leyenda:</span><br>
+            <span style="color: #1e3c72;">🔵 Pueblos</span> · 
+            <span style="color: #c0392b;">🔴 Iglesias</span> · 
+            <span style="color: #e67e22;">🟠 Plazas</span> · 
+            <span style="color: #27ae60;">🟢 Cruces</span> · 
+            <span style="color: #3498db;">🔵 Glaciares</span> · 
+            <span style="color: #8e44ad;">🟣 Descanso</span><br>
+            <span style="color: #e67e22;">🚌 Ruta vehicular</span> · 
+            <span style="color: #8e44ad;">🚶 Lomada</span>
+        </div>
+        """, unsafe_allow_html=True)
     
     # ===== PESTAÑA 3: PERFIL DE ALTITUD =====
     with tab3:
