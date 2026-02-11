@@ -314,30 +314,50 @@ def main():
             with st.spinner("🏔️ Cargando conocimiento ancestral..."):
                 st.session_state.rag = cargar_conocimiento()
         
-        col1, col2 = st.columns([3, 1])
+        st.markdown("### ❓ Pregunta tu propia consulta")
+        
+        # Espacio para escribir pregunta personalizada
+        pregunta_personalizada = st.text_input(
+            "✍️ Escribe tu pregunta sobre Qoyllur Rit'i:",
+            placeholder="Ej: ¿Cuál es el significado de los ukukus?",
+            key="pregunta_input"
+        )
+        
+        col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
-            pregunta = st.selectbox(
-                "🔍 Selecciona una pregunta:",
-                options=[""] + TOP_10_PREGUNTAS,
-                format_func=lambda x: "🎯 Elige una pregunta..." if x == "" else x
-            )
+            st.markdown("##### O selecciona una pregunta frecuente:")
         with col2:
-            st.markdown("<div style='margin-top: 26px;'>", unsafe_allow_html=True)
+            pregunta = st.selectbox(
+                "Preguntas frecuentes:",
+                options=[""] + TOP_10_PREGUNTAS,
+                format_func=lambda x: "🎯 Elige una pregunta..." if x == "" else x,
+                label_visibility="collapsed"
+            )
+        with col3:
+            st.markdown("<div style='margin-top: 24px;'>", unsafe_allow_html=True)
             responder = st.button("✨ Consultar", use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
         
-        if responder and pregunta:
+        # Determinar qué pregunta usar
+        pregunta_final = None
+        if responder:
+            if pregunta_personalizada.strip():
+                pregunta_final = pregunta_personalizada
+            elif pregunta:
+                pregunta_final = pregunta
+        
+        if pregunta_final:
             with st.spinner("🔍 Buscando en la memoria andina..."):
-                respuesta = st.session_state.rag.responder(pregunta)
+                respuesta = st.session_state.rag.responder(pregunta_final)
                 
             st.markdown(f"""
             <div class="respuesta-box">
                 <div style="display: flex; align-items: center; margin-bottom: 20px;">
                     <span style="font-size: 2rem; margin-right: 16px;">🏔️</span>
                     <div>
-                        <span style="font-size: 0.8rem; color: #7f8c8d;">RESPUESTA</span>
-                        <div style="font-size: 1.3rem; font-weight: 600; color: #1e3c72;">
-                            {pregunta}
+                        <span style="font-size: 0.8rem; color: #7f8c8d;">TU PREGUNTA</span>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: #1e3c72;">
+                            {pregunta_final}
                         </div>
                     </div>
                 </div>
