@@ -264,12 +264,13 @@ def cargar_conocimiento():
 # ============================================================================
 # MAPA CON LUGARES MARCADOS (CLARAMENTE VISIBLES)
 # ============================================================================
+
 def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
-    """Mapa con LUGARES GRANDES Y VISIBLES, rutas secundarias"""
+    """Mapa con LUGARES GRANDES Y VISIBLES - SIN opacity EN LINE"""
     
     fig = go.Figure()
     
-    # 1. PRIMERO LAS RUTAS (atrás, tenues)
+    # 1. PRIMERO LAS RUTAS (atrás) - SIN opacity
     if tipo_ruta in ["vehicular", "todas"]:
         coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
         if coords:
@@ -277,7 +278,7 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
                 lat=[c["lat"] for c in coords],
                 lon=[c["lon"] for c in coords],
                 mode="lines",
-                line=dict(width=3, color="#e67e22", opacity=0.7),
+                line=dict(width=3, color="#e67e22"),  # SIN opacity
                 name="Ruta vehicular",
                 hoverinfo="skip"
             ))
@@ -289,7 +290,7 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
                 lat=[c["lat"] for c in coords],
                 lon=[c["lon"] for c in coords],
                 mode="lines",
-                line=dict(width=3, color="#8e44ad", opacity=0.7),
+                line=dict(width=3, color="#8e44ad"),  # SIN opacity
                 name="Ruta Lomada",
                 hoverinfo="skip"
             ))
@@ -301,16 +302,22 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
         if lugar_seleccionado == nombre:
             tamanio = 22  # Más grande si está seleccionado
         
+        # Configurar marcador
+        marker_dict = {
+            "size": tamanio,
+            "color": lugar["color"],
+            "symbol": "marker"
+        }
+        
+        # Solo agregar borde si está seleccionado
+        if lugar_seleccionado == nombre:
+            marker_dict["line"] = {"width": 2, "color": "white"}
+        
         fig.add_trace(go.Scattermapbox(
             lat=[lugar["lat"]],
             lon=[lugar["lon"]],
             mode="markers",
-            marker=dict(
-                size=tamanio,
-                color=lugar["color"],
-                symbol="marker",
-                line=dict(width=2, color="white")
-            ),
+            marker=marker_dict,
             name=nombre,
             hovertemplate=f"""
             <b style='font-size: 14px;'>{lugar['icono']} {nombre}</b><br>
