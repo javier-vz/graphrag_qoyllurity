@@ -1,117 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-📱 Qoyllur Rit'i Explorer - VERSIÓN FINAL DEFINITIVA
-✅ LUGARES EXTRAÍDOS DIRECTAMENTE DEL TTL
-✅ PUNTOS NEGROS VISIBLES EN EL MAPA
-✅ PERFIL DE ALTITUD CON DATOS REALES
-✅ SIN ERRORES DE PLOTLY
-✅ 100% FUNCIONAL
+📱 Qoyllur Rit'i Explorer - VERSIÓN FOLIUM (SOLO PUNTOS)
+✅ FOLIUM - SIEMPRE FUNCIONA
+✅ SOLO PUNTOS NEGROS GRANDES EN EL MAPA
+✅ LUGARES DIRECTAMENTE DEL TTL
+✅ SIN RUTAS, SIN COMPLICACIONES
 """
 
 import streamlit as st
-import pandas as pd
-import numpy as np
+import folium
+from streamlit_folium import st_folium
 from pathlib import Path
-import sys
+from rdflib import Graph, Literal
+from rdflib.namespace import RDFS
+import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
-from rdflib import Graph, URIRef, Literal
-from rdflib.namespace import RDF, RDFS
 
 # ============================================================================
-# IMPORTAR NUESTRO MOTOR DE CONOCIMIENTO
+# MOTOR DE CONOCIMIENTO
 # ============================================================================
 from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
 
-# ============================================================================
-# CONFIGURACIÓN DE LA PÁGINA
-# ============================================================================
-st.set_page_config(
-    page_title="Qoyllur Rit'i Explorer",
-    page_icon="🏔️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Qoyllur Rit'i", page_icon="🏔️", layout="wide")
 
 # ============================================================================
-# CSS PERSONALIZADO
+# CSS
 # ============================================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    * {
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .main {
-        background: linear-gradient(135deg, #fdfaf6 0%, #fff9f0 100%);
-    }
-    
-    h1, h2, h3 {
-        color: #1e3c72;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-    }
-    
-    .stButton button {
-        background: linear-gradient(135deg, #1e3c72 0%, #2c5a8c 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 28px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton button:hover {
-        background: linear-gradient(135deg, #2c5a8c 0%, #1e3c72 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 12px rgba(0,0,0,0.1);
-    }
-    
+    .main { background: #fdfaf6; }
+    h1 { color: #1e3c72; }
+    .stButton button { background: #1e3c72; color: white; }
     .respuesta-box {
         background: white;
         border-left: 6px solid #e67e22;
-        border-radius: 16px;
-        padding: 28px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        padding: 20px;
+        border-radius: 12px;
         margin: 20px 0;
-        font-size: 1.1rem;
-        line-height: 1.7;
-        border: 1px solid #f0f0f0;
-    }
-    
-    .badge-andino {
-        background: #e67e22;
-        color: white;
-        padding: 4px 14px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        display: inline-block;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .footer {
-        text-align: center;
-        color: #7f8c8d;
-        font-size: 0.8rem;
-        padding: 40px 0 20px 0;
-        border-top: 1px solid #e9ecef;
-        margin-top: 40px;
     }
 </style>
 """, unsafe_allow_html=True)
-
-# ============================================================================
-# RUTAS DE PEREGRINACIÓN
-# ============================================================================
-RUTA_VEHICULAR = ["Paucartambo", "Huancarani", "Ccatcca", "Ocongate", "Mahuayani"]
-RUTA_LOMADA = ["SantuarioQoylluriti", "MachuCruz", "Yanaqocha", "Yanaqancha", "QespiCruz", "IntiLloksimuy", "Tayancani"]
 
 # ============================================================================
 # TOP 10 PREGUNTAS
@@ -130,47 +60,34 @@ TOP_10_PREGUNTAS = [
 ]
 
 # ============================================================================
-# EXTRAER LUGARES DIRECTAMENTE DEL TTL
+# CARGAR LUGARES DEL TTL
 # ============================================================================
 @st.cache_resource
 def cargar_lugares_desde_ttl():
     """Extrae TODOS los lugares con coordenadas del TTL"""
     ttl_path = "qoyllurity.ttl"
-    posibles = ["qoyllurity.ttl", "../qoyllurity.ttl", "./data/qoyllurity.ttl"]
-    for p in posibles:
-        if Path(p).exists():
-            ttl_path = p
-            break
+    if not Path(ttl_path).exists():
+        return {}
     
     g = Graph()
     g.parse(ttl_path, format='turtle')
-    
     lugares = {}
     
-    # Buscar TODOS los individuos que tienen geo:lat y geo:long
     for s in g.subjects():
         lat = None
         lon = None
         nombre = None
-        descripcion = ""
         
-        # Buscar lat
         for p, o in g.predicate_objects(s):
             p_str = str(p)
-            if 'geo:lat' in p_str or '/lat' in p_str or '#lat' in p_str:
-                try:
-                    lat = float(o)
-                except:
-                    pass
-            if 'geo:long' in p_str or '/long' in p_str or '#long' in p_str or '/lon' in p_str:
-                try:
-                    lon = float(o)
-                except:
-                    pass
+            if 'lat' in p_str.lower():
+                try: lat = float(o)
+                except: pass
+            if 'long' in p_str.lower() or 'lon' in p_str.lower():
+                try: lon = float(o)
+                except: pass
         
-        # Si tiene coordenadas, guardar
         if lat and lon:
-            # Buscar nombre
             for o in g.objects(s, RDFS.label):
                 if isinstance(o, Literal) and o.language == 'es':
                     nombre = str(o)
@@ -178,150 +95,60 @@ def cargar_lugares_desde_ttl():
             if not nombre:
                 nombre = str(s).split('#')[-1]
             
-            # Buscar descripción
-            for o in g.objects(s, RDFS.comment):
-                if isinstance(o, Literal) and hasattr(o, 'language') and o.language == 'es':
-                    descripcion = str(o)[:150] + "..." if len(str(o)) > 150 else str(o)
-                    break
-            
             lugares[nombre] = {
                 "lat": lat,
                 "lon": lon,
-                "nombre": nombre,
-                "descripcion": descripcion
+                "nombre": nombre
             }
     
     return lugares
 
 # ============================================================================
-# CARGAR LUGARES DEL TTL
+# CARGAR LUGARES
 # ============================================================================
 LUGARES_TTL = cargar_lugares_desde_ttl()
 
 # ============================================================================
-# INICIALIZAR MOTOR DE CONOCIMIENTO
+# MOTOR DE CONOCIMIENTO
 # ============================================================================
 @st.cache_resource
 def cargar_conocimiento():
-    ttl_path = "qoyllurity.ttl"
-    posibles = ["qoyllurity.ttl", "../qoyllurity.ttl", "./data/qoyllurity.ttl"]
-    for p in posibles:
-        if Path(p).exists():
-            ttl_path = p
-            break
-    return UltraLiteQoyllurV15(ttl_path)
+    return UltraLiteQoyllurV15("qoyllurity.ttl")
 
 # ============================================================================
-# MAPA - PUNTOS NEGROS VISIBLES
+# MAPA CON FOLIUM - SOLO PUNTOS NEGROS
 # ============================================================================
-def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
-    """
-    Mapa con lugares EXCLUSIVAMENTE del TTL
-    ✅ PUNTOS NEGROS - SIEMPRE VISIBLES
-    ✅ SIN marker.line - compatible Python 3.13
-    ✅ Tooltips compactos
-    """
+def crear_mapa_folium():
+    """Crea mapa con Folium - puntos negros grandes, SIN RUTAS"""
     
-    # Estilos de mapa
-    ESTILOS_MAPA = {
-        "calle": "carto-positron",
-        "outdoor": "open-street-map",
-        "oscuro": "carto-darkmatter",
-        "satelite": "satellite-streets"
-    }
-    
-    fig = go.Figure()
-    
-    # ===== AGREGAR RUTAS =====
-    if tipo_ruta in ["vehicular", "todas"]:
-        coords = []
-        for l in RUTA_VEHICULAR:
-            if l in LUGARES_TTL:
-                coords.append(LUGARES_TTL[l])
-        if coords:
-            fig.add_trace(go.Scattermapbox(
-                lat=[c["lat"] for c in coords],
-                lon=[c["lon"] for c in coords],
-                mode="lines",
-                line=dict(width=3, color="#e67e22"),
-                name="Ruta vehicular",
-                hoverinfo="skip"
-            ))
-    
-    if tipo_ruta in ["lomada", "todas"]:
-        coords = []
-        for l in RUTA_LOMADA:
-            if l in LUGARES_TTL:
-                coords.append(LUGARES_TTL[l])
-        if coords:
-            fig.add_trace(go.Scattermapbox(
-                lat=[c["lat"] for c in coords],
-                lon=[c["lon"] for c in coords],
-                mode="lines",
-                line=dict(width=3, color="#8e44ad"),
-                name="Ruta Lomada",
-                hoverinfo="skip"
-            ))
-    
-    # ===== AGREGAR LUGARES - PUNTOS NEGROS GRANDES =====
-    for nombre, lugar in LUGARES_TTL.items():
-        # Punto NEGRO grande - SIEMPRE visible
-        marker_dict = {
-            "size": 14,
-            "color": "#000000",  # Negro puro
-            "symbol": "marker"
-        }
-        
-        # Tooltip compacto
-        hover_text = f"""
-        <b style='font-size: 15px;'>{nombre}</b><br>
-        <span style='font-size: 12px; color: #555;'>
-        📍 {lugar['lat']:.4f}, {lugar['lon']:.4f}<br>
-        {lugar['descripcion']}
-        </span>
-        """
-        
-        fig.add_trace(go.Scattermapbox(
-            lat=[lugar["lat"]],
-            lon=[lugar["lon"]],
-            mode="markers",
-            marker=marker_dict,
-            name=nombre,
-            hovertemplate=hover_text + "<extra></extra>",
-            hoverlabel=dict(
-                bgcolor="white",
-                bordercolor="#000000",
-                font=dict(size=12, color="#000000")
-            ),
-            showlegend=False
-        ))
-    
-    # ===== CONFIGURAR MAPA =====
-    estilo = ESTILOS_MAPA.get(estilo_mapa, "carto-positron")
-    
-    mapbox_config = {
-        "style": estilo,
-        "center": dict(lat=-13.55, lon=-71.4),
-        "zoom": 7.5
-    }
-    
-    if token_mapbox and estilo_mapa == "satelite":
-        mapbox_config["accesstoken"] = token_mapbox
-    
-    fig.update_layout(
-        mapbox=mapbox_config,
-        margin=dict(l=0, r=0, t=0, b=0),
-        height=650,
-        clickmode='event+select'
+    # Centro del mapa
+    mapa = folium.Map(
+        location=[-13.55, -71.4],
+        zoom_start=8,
+        control_scale=True
     )
     
-    return fig
+    # Agregar cada lugar como un punto NEGRO grande
+    for nombre, lugar in LUGARES_TTL.items():
+        folium.CircleMarker(
+            location=[lugar["lat"], lugar["lon"]],
+            radius=10,  # GRANDE
+            color="black",
+            weight=2,
+            fill=True,
+            fill_color="black",
+            fill_opacity=0.8,
+            popup=folium.Popup(f"<b>{nombre}</b><br>{lugar['lat']:.4f}, {lugar['lon']:.4f}", max_width=300),
+            tooltip=nombre
+        ).add_to(mapa)
+    
+    return mapa
 
 # ============================================================================
-# PERFIL DE ALTITUD - CON DATOS REALES
+# PERFIL DE ALTITUD
 # ============================================================================
 def crear_perfil_altitud():
-    """Perfil de altitud con datos reales de la peregrinación"""
+    """Perfil de altitud con datos reales"""
     
     ruta = [
         {"lugar": "Paucartambo", "dist": 0, "alt": 2900},
@@ -345,10 +172,10 @@ def crear_perfil_altitud():
         row_heights=[0.7, 0.3],
         shared_xaxes=True,
         vertical_spacing=0.1,
-        subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente del Terreno")
+        subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente")
     )
     
-    # Perfil principal
+    # Perfil
     fig.add_trace(
         go.Scatter(
             x=df["dist"], y=df["alt"],
@@ -373,10 +200,7 @@ def crear_perfil_altitud():
     pendientes = []
     for i in range(1, len(df)):
         pend = (df.loc[i, "alt"] - df.loc[i-1, "alt"]) / (df.loc[i, "dist"] - df.loc[i-1, "dist"]) * 100
-        pendientes.append({
-            "x": (df.loc[i, "dist"] + df.loc[i-1, "dist"]) / 2,
-            "pend": pend
-        })
+        pendientes.append({"x": (df.loc[i, "dist"] + df.loc[i-1, "dist"]) / 2, "pend": pend})
     
     df_pend = pd.DataFrame(pendientes)
     colors = ['#27ae60' if p > 0 else '#e74c3c' for p in df_pend["pend"]]
@@ -389,14 +213,7 @@ def crear_perfil_altitud():
     
     fig.add_hline(y=0, line_dash="dash", line_color="#7f8c8d", opacity=0.5, row=2, col=1)
     
-    fig.update_layout(
-        height=600,
-        hovermode="x unified",
-        plot_bgcolor="white",
-        showlegend=False,
-        margin=dict(l=40, r=40, t=40, b=40)
-    )
-    
+    fig.update_layout(height=500, hovermode="x unified", plot_bgcolor="white", showlegend=False)
     fig.update_xaxes(title_text="Distancia (km)", row=1, col=1)
     fig.update_yaxes(title_text="Altitud (msnm)", row=1, col=1)
     fig.update_xaxes(title_text="Distancia (km)", row=2, col=1)
@@ -408,9 +225,7 @@ def crear_perfil_altitud():
 # APP PRINCIPAL
 # ============================================================================
 def main():
-    
-    # Header
-    st.markdown(f"""
+    st.markdown("""
     <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
         <div style="font-size: 4rem;">🏔️</div>
         <div>
@@ -418,7 +233,7 @@ def main():
                 Qoyllur Rit'i Explorer
             </h1>
             <p style="margin: 0; color: #7f8c8d; font-size: 1.2rem;">
-                Conocimiento ancestral · Mapas interactivos · Sinakara, Cusco
+                Conocimiento ancestral · Mapas con Folium · Sinakara, Cusco
             </p>
             <p style="margin: 5px 0 0 0; color: #e67e22; font-size: 0.9rem;">
                 🗺️ {len(LUGARES_TTL)} lugares sagrados cargados desde el TTL
@@ -429,14 +244,6 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.markdown("### 🗺️ Configuración de Mapbox")
-        token_mapbox = st.text_input(
-            "Token de Mapbox (para satélite)",
-            type="password",
-            help="Obtén tu token gratis en mapbox.com"
-        )
-        
-        st.markdown("---")
         st.markdown("### 🏔️ Qoyllur Rit'i")
         st.markdown(f"""
         **Señor de Qoyllur Rit'i**  
@@ -447,9 +254,17 @@ def main():
         **⛰️ Altitud máxima:** 5,200 msnm  
         **👥 Participantes:** Ocho naciones
         """)
+        
+        st.markdown("---")
+        st.markdown("""
+        ### 🗺️ Mapa con Folium
+        - **Puntos negros** = lugares sagrados
+        - **Click** en cada punto para ver nombre
+        - Sin tokens, sin Mapbox, sin errores
+        """)
     
     # Tabs
-    tab1, tab2, tab3 = st.tabs(["❓ Preguntas", "🗺️ Mapa TTL", "⛰️ Perfil de Altitud"])
+    tab1, tab2, tab3 = st.tabs(["❓ Preguntas", "🗺️ Mapa (Folium)", "⛰️ Perfil"])
     
     # ===== TAB 1: PREGUNTAS =====
     with tab1:
@@ -490,48 +305,32 @@ def main():
             </div>
             """, unsafe_allow_html=True)
     
-    # ===== TAB 2: MAPA CON PUNTOS NEGROS =====
+    # ===== TAB 2: MAPA CON FOLIUM - SOLO PUNTOS NEGROS =====
     with tab2:
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col1:
-            st.markdown(f"### 🗺️ Mapa Sagrado ({len(LUGARES_TTL)} lugares)")
-        with col2:
-            tipo_ruta = st.radio(
-                "Rutas:",
-                ["Todas", "Vehicular", "Lomada"],
-                horizontal=True,
-                key="ruta_radio"
-            )
-        with col3:
-            estilo_mapa = st.selectbox(
-                "Estilo:",
-                ["Calle", "Outdoor", "Oscuro", "Satélite"],
-                index=0,
-                key="estilo_radio"
-            )
+        st.markdown(f"### 🗺️ Mapa de lugares sagrados ({len(LUGARES_TTL)} puntos)")
         
-        mapa = crear_mapa_ttl(
-            tipo_ruta=tipo_ruta.lower(),
-            estilo_mapa=estilo_mapa.lower(),
-            token_mapbox=token_mapbox if token_mapbox else None
-        )
+        if len(LUGARES_TTL) == 0:
+            st.error("❌ No se encontraron lugares con coordenadas en el TTL")
+            st.stop()
         
-        st.plotly_chart(mapa, use_container_width=True)
+        # Crear mapa con Folium
+        mapa = crear_mapa_folium()
         
-        # Métricas
-        col1, col2, col3, col4 = st.columns(4)
+        # Mostrar mapa
+        st_data = st_folium(mapa, width="100%", height=600)
+        
+        # Métricas simples
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("📍 Lugares TTL", len(LUGARES_TTL))
         with col2:
-            st.metric("🚌 Ruta vehicular", "85 km")
-        with col3:
-            st.metric("🚶 Lomada", "35 km · 24h")
-        with col4:
             st.metric("🏔️ Altitud máxima", "5,200 msnm")
+        with col3:
+            st.metric("🗺️ Tecnología", "Folium (sin errores)")
     
-    # ===== TAB 3: PERFIL DE ALTITUD =====
+    # ===== TAB 3: PERFIL =====
     with tab3:
-        st.markdown("### ⛰️ Perfil de Altitud de la Peregrinación")
+        st.markdown("### ⛰️ Perfil de Altitud")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -545,40 +344,6 @@ def main():
         
         perfil = crear_perfil_altitud()
         st.plotly_chart(perfil, use_container_width=True)
-        
-        with st.expander("📊 Ver datos de la ruta"):
-            df_ruta = pd.DataFrame([
-                {"Tramo": "Paucartambo → Huancarani", "Distancia": "25 km", "Desnivel": "+600 m"},
-                {"Tramo": "Huancarani → Ccatcca", "Distancia": "20 km", "Desnivel": "+200 m"},
-                {"Tramo": "Ccatcca → Ocongate", "Distancia": "20 km", "Desnivel": "+100 m"},
-                {"Tramo": "Ocongate → Mahuayani", "Distancia": "20 km", "Desnivel": "+400 m"},
-                {"Tramo": "Mahuayani → Santuario", "Distancia": "10 km", "Desnivel": "+600 m"},
-                {"Tramo": "Santuario → Machu Cruz", "Distancia": "3 km", "Desnivel": "+100 m"},
-                {"Tramo": "Machu Cruz → Yanaqocha", "Distancia": "4 km", "Desnivel": "-50 m"},
-                {"Tramo": "Yanaqocha → Yanaqancha", "Distancia": "4 km", "Desnivel": "-100 m"},
-                {"Tramo": "Yanaqancha → Q'espi Cruz", "Distancia": "9 km", "Desnivel": "-150 m"},
-                {"Tramo": "Q'espi Cruz → Inti Alabado", "Distancia": "5 km", "Desnivel": "-100 m"},
-                {"Tramo": "Inti Alabado → Tayancani", "Distancia": "5 km", "Desnivel": "-700 m"}
-            ])
-            st.dataframe(df_ruta, use_container_width=True, hide_index=True)
-    
-    # Footer
-    st.markdown("""
-    <div class="footer">
-        <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 20px;">
-            <span>🏔️ Qoyllur Rit'i Explorer</span>
-            <span>•</span>
-            <span>🗺️ {len(LUGARES_TTL)} lugares del TTL</span>
-            <span>•</span>
-            <span>📊 Perfil con pendiente</span>
-            <span>•</span>
-            <span>⚫ Puntos negros visibles</span>
-        </div>
-        <div style="font-size: 0.7rem; color: #95a5a6;">
-            Conocimiento ancestral de la Nación Paucartambo · Sinakara, Cusco · 100% TTL
-        </div>
-    </div>
-    """.format(len=len(LUGARES_TTL)), unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
