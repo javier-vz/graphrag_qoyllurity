@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-📱 Qoyllur Rit'i Explorer - VERSIÓN DEFINITIVA
-✅ Preguntas a la izquierda
-✅ Mapa con lugares clickeables
-✅ Panel de información a la derecha
-✅ 100% funcional, sin errores
+📱 Qoyllur Rit'i Explorer - VERSIÓN FINAL
+✅ PESTAÑAS: Preguntas | Mapa | Perfil
+✅ MAPA: Lugares claramente marcados (16 puntos)
+✅ RUTAS: Visibles pero NO opacan los marcadores
+✅ PERFIL DE ALTITUD: Con zonas y pendiente
+✅ Click en marcador → muestra información
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 from pathlib import Path
 import sys
 
@@ -67,8 +70,6 @@ st.markdown("""
         padding: 24px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         margin: 20px 0;
-        font-size: 1rem;
-        line-height: 1.6;
     }
     
     .info-panel {
@@ -77,7 +78,6 @@ st.markdown("""
         padding: 24px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         border-left: 6px solid #e67e22;
-        height: fit-content;
     }
     
     .badge {
@@ -88,7 +88,6 @@ st.markdown("""
         font-size: 0.75rem;
         font-weight: 600;
         display: inline-block;
-        margin-right: 8px;
     }
     
     .footer {
@@ -103,9 +102,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# DATOS DE LUGARES SAGRADOS
+# DATOS DE LUGARES SAGRADOS - 16 LUGARES CON COORDENADAS PRECISAS
 # ============================================================================
 LUGARES_SAGRADOS = {
+    # PAUCARTAMBO Y ALREDEDORES (4 lugares)
     "Paucartambo": {
         "lat": -13.3127, "lon": -71.6146, "alt": 2900,
         "tipo": "Pueblo de partida",
@@ -134,6 +134,8 @@ LUGARES_SAGRADOS = {
         "ritual": "Vestimenta ceremonial, anuncio público",
         "icono": "🎭", "color": "#e67e22"
     },
+    
+    # RUTA VEHICULAR (4 lugares)
     "Huancarani": {
         "lat": -13.5003, "lon": -71.6749, "alt": 3500,
         "tipo": "Cruce vial ceremonial",
@@ -162,6 +164,8 @@ LUGARES_SAGRADOS = {
         "ritual": "Preparación para el ascenso",
         "icono": "🚩", "color": "#2c3e50"
     },
+    
+    # SANTUARIO Y GLACIAR (2 lugares)
     "SantuarioQoylluriti": {
         "lat": -13.5986, "lon": -71.1914, "alt": 4800,
         "tipo": "Santuario principal",
@@ -176,6 +180,8 @@ LUGARES_SAGRADOS = {
         "ritual": "Ascenso nocturno, extracción de hielo sagrado",
         "icono": "❄️", "color": "#3498db"
     },
+    
+    # LOMADA - CAMINATA DE 24 HORAS (6 lugares)
     "MachuCruz": {
         "lat": -13.5900, "lon": -71.1850, "alt": 4900,
         "tipo": "Cruz ceremonial",
@@ -233,13 +239,13 @@ TOP_10_PREGUNTAS = [
     "¿Qué es la fiesta del Señor de Qoyllur Rit'i?",
     "¿Dónde queda el santuario?",
     "¿Quiénes son los ukukus y qué hacen?",
-    "¿Qué actividades hay cada día de la peregrinación?",
-    "¿Dónde se realiza la misa especial de los ukukus?",
-    "¿Qué es la Lomada o caminata de 24 horas?",
-    "¿Quiénes participan en la peregrinación?",
-    "¿Dónde está el glaciar Colque Punku?",
-    "¿Cuándo suben al glaciar y por qué?",
-    "¿Qué danzas y músicas acompañan la festividad?"
+    "¿Qué actividades hay cada día?",
+    "¿Dónde se hace la misa de ukukus?",
+    "¿Qué es la Lomada?",
+    "¿Quiénes participan?",
+    "¿Dónde está el glaciar?",
+    "¿Cuándo suben al glaciar?",
+    "¿Qué danzas hay?"
 ]
 
 # ============================================================================
@@ -256,14 +262,14 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15(ttl_path)
 
 # ============================================================================
-# MAPA SIMPLE - CLICKEABLE
+# MAPA CON LUGARES MARCADOS (CLARAMENTE VISIBLES)
 # ============================================================================
-def crear_mapa(tipo_ruta="todas"):
-    """Mapa simple con marcadores clickeables"""
+def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
+    """Mapa con LUGARES GRANDES Y VISIBLES, rutas secundarias"""
     
     fig = go.Figure()
     
-    # 1. RUTAS (detrás)
+    # 1. PRIMERO LAS RUTAS (atrás, tenues)
     if tipo_ruta in ["vehicular", "todas"]:
         coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
         if coords:
@@ -271,7 +277,7 @@ def crear_mapa(tipo_ruta="todas"):
                 lat=[c["lat"] for c in coords],
                 lon=[c["lon"] for c in coords],
                 mode="lines",
-                line=dict(width=3, color="#e67e22"),
+                line=dict(width=3, color="#e67e22", opacity=0.7),
                 name="Ruta vehicular",
                 hoverinfo="skip"
             ))
@@ -283,24 +289,36 @@ def crear_mapa(tipo_ruta="todas"):
                 lat=[c["lat"] for c in coords],
                 lon=[c["lon"] for c in coords],
                 mode="lines",
-                line=dict(width=3, color="#8e44ad"),
+                line=dict(width=3, color="#8e44ad", opacity=0.7),
                 name="Ruta Lomada",
                 hoverinfo="skip"
             ))
     
-    # 2. LUGARES (encima)
+    # 2. LUEGO LOS LUGARES (GRANDES, COLORIDOS, VISIBLES)
     for nombre, lugar in LUGARES_SAGRADOS.items():
+        # Tamaño más grande para que se vean bien
+        tamanio = 16
+        if lugar_seleccionado == nombre:
+            tamanio = 22  # Más grande si está seleccionado
+        
         fig.add_trace(go.Scattermapbox(
             lat=[lugar["lat"]],
             lon=[lugar["lon"]],
             mode="markers",
             marker=dict(
-                size=12,
+                size=tamanio,
                 color=lugar["color"],
-                symbol="marker"
+                symbol="marker",
+                line=dict(width=2, color="white")
             ),
             name=nombre,
-            hovertemplate=f"<b>{lugar['icono']} {nombre}</b><br>{lugar['tipo']}<br>{lugar['alt']} msnm<extra></extra>",
+            hovertemplate=f"""
+            <b style='font-size: 14px;'>{lugar['icono']} {nombre}</b><br>
+            {lugar['tipo']}<br>
+            📏 {lugar['alt']} msnm<br>
+            <span style='color: #e67e22;'>🖱️ Click para ver detalles</span>
+            <extra></extra>
+            """,
             showlegend=False
         ))
     
@@ -312,7 +330,7 @@ def crear_mapa(tipo_ruta="todas"):
             zoom=7.8
         ),
         margin=dict(l=0, r=0, t=0, b=0),
-        height=600,
+        height=550,
         clickmode='event+select',
         showlegend=True,
         legend=dict(
@@ -325,7 +343,94 @@ def crear_mapa(tipo_ruta="todas"):
     return fig
 
 # ============================================================================
-# APP PRINCIPAL
+# PERFIL DE ALTITUD COMPLETO
+# ============================================================================
+def crear_perfil_altitud():
+    """Perfil con zonas y pendiente"""
+    
+    ruta = [
+        {"lugar": "Paucartambo", "dist": 0, "alt": 2900},
+        {"lugar": "Huancarani", "dist": 25, "alt": 3500},
+        {"lugar": "Ccatcca", "dist": 45, "alt": 3700},
+        {"lugar": "Ocongate", "dist": 65, "alt": 3800},
+        {"lugar": "Mahuayani", "dist": 85, "alt": 4200},
+        {"lugar": "Santuario", "dist": 95, "alt": 4800},
+        {"lugar": "MachuCruz", "dist": 98, "alt": 4900},
+        {"lugar": "Yanaqocha", "dist": 102, "alt": 4850},
+        {"lugar": "Yanaqancha", "dist": 106, "alt": 4750},
+        {"lugar": "QespiCruz", "dist": 115, "alt": 4600},
+        {"lugar": "IntiLloksimuy", "dist": 120, "alt": 4500},
+        {"lugar": "Tayancani", "dist": 125, "alt": 3800}
+    ]
+    
+    df = pd.DataFrame(ruta)
+    
+    fig = make_subplots(
+        rows=2, cols=1,
+        row_heights=[0.7, 0.3],
+        shared_xaxes=True,
+        vertical_spacing=0.1,
+        subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente del Terreno")
+    )
+    
+    # Perfil principal
+    fig.add_trace(
+        go.Scatter(
+            x=df["dist"], y=df["alt"],
+            mode="lines+markers",
+            line=dict(color="#1e3c72", width=4),
+            marker=dict(size=10, color="#e67e22"),
+            text=df["lugar"],
+            hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>"
+        ),
+        row=1, col=1
+    )
+    
+    # Zonas
+    fig.add_vrect(x0=0, x1=85, fillcolor="rgba(46,204,113,0.2)", line_width=0,
+                  annotation_text="🚌 Zona vehicular", annotation_position="top left", row=1, col=1)
+    fig.add_vrect(x0=85, x1=95, fillcolor="rgba(241,196,15,0.2)", line_width=0,
+                  annotation_text="🚶 Ascenso", annotation_position="top left", row=1, col=1)
+    fig.add_vrect(x0=95, x1=125, fillcolor="rgba(155,89,182,0.2)", line_width=0,
+                  annotation_text="🏔️ Lomada (24h)", annotation_position="top left", row=1, col=1)
+    
+    # Pendiente
+    pendientes = []
+    for i in range(1, len(df)):
+        pend = (df.loc[i, "alt"] - df.loc[i-1, "alt"]) / (df.loc[i, "dist"] - df.loc[i-1, "dist"]) * 100
+        pendientes.append({
+            "x": (df.loc[i, "dist"] + df.loc[i-1, "dist"]) / 2,
+            "pend": pend
+        })
+    
+    df_pend = pd.DataFrame(pendientes)
+    colors = ['#27ae60' if p > 0 else '#e74c3c' for p in df_pend["pend"]]
+    
+    fig.add_trace(
+        go.Bar(x=df_pend["x"], y=df_pend["pend"], marker_color=colors,
+               name="Pendiente", showlegend=False),
+        row=2, col=1
+    )
+    
+    fig.add_hline(y=0, line_dash="dash", line_color="#7f8c8d", opacity=0.5, row=2, col=1)
+    
+    fig.update_layout(
+        height=550,
+        hovermode="x unified",
+        plot_bgcolor="white",
+        showlegend=False,
+        margin=dict(l=40, r=40, t=40, b=40)
+    )
+    
+    fig.update_xaxes(title_text="Distancia (km)", row=1, col=1)
+    fig.update_yaxes(title_text="Altitud (msnm)", row=1, col=1)
+    fig.update_xaxes(title_text="Distancia (km)", row=2, col=1)
+    fig.update_yaxes(title_text="Pendiente (%)", row=2, col=1)
+    
+    return fig
+
+# ============================================================================
+# APP PRINCIPAL - CON PESTAÑAS
 # ============================================================================
 def main():
     
@@ -351,84 +456,87 @@ def main():
         
         **📅 Fecha:** 58 días después del Miércoles de Ceniza  
         **📍 Altitud:** 4,800 - 5,200 msnm  
-        **👥 Participantes:** Ocho naciones  
+        **👥 Participantes:** 8 naciones  
         **⏳ Duración:** 5 días
         """)
         
         st.markdown("---")
         st.markdown("""
-        ### 🗺️ Lugares en el mapa
-        - **16 lugares sagrados**
+        ### 🗺️ Lugares en mapa
+        - **16 lugares sagrados** marcados
         - 🚌 Ruta vehicular (naranja)
         - 🚶 Lomada (morada)
         - **🖱️ Click en cualquier marcador**
         """)
-    
-    # ===== LAYOUT PRINCIPAL: PREGUNTAS (IZQ) + MAPA (DER) =====
-    col_preguntas, col_mapa = st.columns([1, 2])
-    
-    # ===== COLUMNA IZQUIERDA: PREGUNTAS =====
-    with col_preguntas:
-        st.markdown("### ❓ Preguntas frecuentes")
         
+        st.markdown("---")
+        st.markdown("""
+        ### ⛰️ Perfil de altitud
+        - **Salida:** 2,900 msnm
+        - **Punto más alto:** 5,200 msnm
+        - **Desnivel:** +2,300 m
+        - **Distancia:** 125 km
+        """)
+    
+    # ===== PESTAÑAS PRINCIPALES =====
+    tab1, tab2, tab3 = st.tabs(["❓ Preguntas", "🗺️ Mapa de lugares", "⛰️ Perfil de altitud"])
+    
+    # ===== PESTAÑA 1: PREGUNTAS =====
+    with tab1:
         # Cargar conocimiento
         if 'rag' not in st.session_state:
-            with st.spinner("Cargando..."):
+            with st.spinner("Cargando conocimiento ancestral..."):
                 st.session_state.rag = cargar_conocimiento()
         
-        # Selector de preguntas
-        pregunta = st.selectbox(
-            "Selecciona una pregunta:",
-            options=[""] + TOP_10_PREGUNTAS,
-            format_func=lambda x: "Elige una pregunta..." if x == "" else x,
-            key="pregunta_select"
-        )
+        col1, col2 = st.columns([3, 1])
         
-        # Botón consultar
-        if st.button("🔍 Consultar", use_container_width=True):
-            if pregunta:
-                with st.spinner("Buscando..."):
-                    respuesta = st.session_state.rag.responder(pregunta)
-                    st.session_state.ultima_respuesta = respuesta
-                    st.session_state.ultima_pregunta = pregunta
+        with col1:
+            pregunta = st.selectbox(
+                "Selecciona una pregunta:",
+                options=[""] + TOP_10_PREGUNTAS,
+                format_func=lambda x: "Elige una pregunta..." if x == "" else x
+            )
         
-        # Mostrar respuesta si existe
-        if 'ultima_respuesta' in st.session_state:
+        with col2:
+            st.markdown("<div style='margin-top: 26px;'>", unsafe_allow_html=True)
+            consultar = st.button("🔍 Consultar", use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        if consultar and pregunta:
+            with st.spinner("Buscando respuesta..."):
+                respuesta = st.session_state.rag.responder(pregunta)
+                st.session_state.respuesta = respuesta
+        
+        if 'respuesta' in st.session_state:
             st.markdown(f"""
             <div class="respuesta-box">
-                <span style="font-size: 0.8rem; color: #e67e22;">RESPUESTA</span>
-                <p style="font-size: 1rem; margin-top: 8px;">{st.session_state.ultima_respuesta}</p>
+                <span style="font-size: 0.8rem; color: #e67e22; text-transform: uppercase;">Respuesta</span>
+                <p style="font-size: 1rem; margin-top: 12px; line-height: 1.6;">{st.session_state.respuesta}</p>
             </div>
             """, unsafe_allow_html=True)
-        
-        # Días de la festividad (info extra)
-        with st.expander("📅 Ver días de la festividad"):
-            st.markdown("""
-            **Día 1 (Sábado):** Gelación y ensayos  
-            **Día 2 (Domingo):** Misa, romería, viaje  
-            **Día 3 (Lunes):** Ascenso, Misa Ukukus  
-            **Noche Lunes:** Subida al glaciar  
-            **Día 4 (Martes):** Bajada, inicio Lomada  
-            **Noche Martes:** Canto en Q'espi Cruz  
-            **Día 5 (Miércoles):** Inti Alabado, retorno
-            """)
     
-    # ===== COLUMNA DERECHA: MAPA + INFO =====
-    with col_mapa:
-        # Selector de rutas
-        tipo_ruta = st.radio(
-            "Mostrar rutas:",
-            ["Todas", "Vehicular", "Lomada"],
-            horizontal=True,
-            key="ruta_radio"
-        )
+    # ===== PESTAÑA 2: MAPA CON LUGARES MARCADOS =====
+    with tab2:
+        st.markdown("### 🗺️ Lugares sagrados de la peregrinación")
+        
+        # Controles
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            tipo_ruta = st.radio(
+                "Mostrar rutas:",
+                ["Todas", "Vehicular", "Lomada"],
+                horizontal=True
+            )
         
         # Estado del lugar seleccionado
         if 'lugar_seleccionado' not in st.session_state:
             st.session_state.lugar_seleccionado = None
         
-        # Crear mapa
-        mapa = crear_mapa(tipo_ruta.lower())
+        # Crear mapa con LUGARES GRANDES Y VISIBLES
+        mapa = crear_mapa_con_lugares(
+            tipo_ruta=tipo_ruta.lower(),
+            lugar_seleccionado=st.session_state.lugar_seleccionado
+        )
         
         # Capturar click
         evento = st.plotly_chart(mapa, use_container_width=True, key="mapa", on_select="rerun")
@@ -442,34 +550,85 @@ def main():
                     st.session_state.lugar_seleccionado = nombre
                     st.rerun()
         
-        # Panel de información del lugar
-        st.markdown("---")
+        # Layout de dos columnas para mapa e info
+        col_mapa, col_info = st.columns([2, 1])
         
-        if st.session_state.lugar_seleccionado and st.session_state.lugar_seleccionado in LUGARES_SAGRADOS:
-            lugar = LUGARES_SAGRADOS[st.session_state.lugar_seleccionado]
-            
-            st.markdown(f"""
-            <div class="info-panel" style="border-left-color: {lugar['color']};">
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                    <span style="font-size: 2rem;">{lugar['icono']}</span>
-                    <span style="font-size: 1.5rem; font-weight: 700; color: {lugar['color']};">{st.session_state.lugar_seleccionado}</span>
-                </div>
-                <p style="color: #e67e22; font-weight: 600; margin-bottom: 12px;">{lugar['tipo']}</p>
-                <p style="color: #2c3e50; line-height: 1.6;">{lugar['descripcion']}</p>
-                <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-top: 16px;">
-                    <span style="font-weight: 600;">📏 Altitud:</span> {lugar['alt']:,} msnm<br>
-                    <span style="font-weight: 600;">🕯️ Ritual:</span> {lugar['ritual']}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
+        with col_mapa:
+            # Leyenda de colores
             st.markdown("""
-            <div style="background: white; border-radius: 16px; padding: 32px; text-align: center; border: 2px dashed #e67e22;">
-                <div style="font-size: 3rem; margin-bottom: 16px;">🗺️</div>
-                <h4 style="color: #1e3c72; margin-bottom: 8px;">Haz click en cualquier lugar del mapa</h4>
-                <p style="color: #666;">Selecciona un marcador para ver información detallada</p>
+            <div style="background: white; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;">
+                <span style="font-weight: 600;">📍 Leyenda de colores:</span><br>
+                <span style="color: #1e3c72;">🔵 Pueblos</span> · 
+                <span style="color: #c0392b;">🔴 Iglesias</span> · 
+                <span style="color: #e67e22;">🟠 Plazas</span> · 
+                <span style="color: #27ae60;">🟢 Cruces</span> · 
+                <span style="color: #3498db;">🔵 Glaciares</span> · 
+                <span style="color: #8e44ad;">🟣 Descanso</span>
             </div>
             """, unsafe_allow_html=True)
+        
+        with col_info:
+            # Información del lugar seleccionado
+            if st.session_state.lugar_seleccionado and st.session_state.lugar_seleccionado in LUGARES_SAGRADOS:
+                lugar = LUGARES_SAGRADOS[st.session_state.lugar_seleccionado]
+                
+                st.markdown(f"""
+                <div class="info-panel" style="border-left-color: {lugar['color']};">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                        <span style="font-size: 2rem;">{lugar['icono']}</span>
+                        <span style="font-size: 1.3rem; font-weight: 700; color: {lugar['color']};">{st.session_state.lugar_seleccionado}</span>
+                    </div>
+                    <p style="color: #e67e22; font-weight: 600; margin-bottom: 12px;">{lugar['tipo']}</p>
+                    <p style="color: #2c3e50; line-height: 1.6;">{lugar['descripcion']}</p>
+                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-top: 16px;">
+                        <span style="font-weight: 600;">📏 Altitud:</span> {lugar['alt']:,} msnm<br>
+                        <span style="font-weight: 600;">🕯️ Ritual:</span> {lugar['ritual']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background: white; border-radius: 16px; padding: 24px; text-align: center; border: 2px dashed #e67e22; height: 100%;">
+                    <div style="font-size: 2.5rem; margin-bottom: 16px;">🗺️</div>
+                    <h4 style="color: #1e3c72; margin-bottom: 8px;">Haz click en un lugar</h4>
+                    <p style="color: #666;">Selecciona cualquier marcador del mapa</p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # ===== PESTAÑA 3: PERFIL DE ALTITUD =====
+    with tab3:
+        st.markdown("### ⛰️ Perfil de altitud de la peregrinación")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("🏁 Salida", "Paucartambo", "2,900 msnm")
+        with col2:
+            st.metric("❄️ Punto más alto", "Colque Punku", "5,200 msnm")
+        with col3:
+            st.metric("📈 Desnivel", "+2,300 m")
+        with col4:
+            st.metric("🎯 Llegada", "Tayancani", "3,800 msnm")
+        
+        perfil = crear_perfil_altitud()
+        st.plotly_chart(perfil, use_container_width=True)
+        
+        # Tabla de hitos
+        with st.expander("📍 Ver todos los hitos de la ruta"):
+            hitos = pd.DataFrame([
+                {"Lugar": "Paucartambo", "Distancia": "0 km", "Altitud": "2,900 msnm", "Actividad": "Partida"},
+                {"Lugar": "Huancarani", "Distancia": "25 km", "Altitud": "3,500 msnm", "Actividad": "Punto de encuentro"},
+                {"Lugar": "Ccatcca", "Distancia": "45 km", "Altitud": "3,700 msnm", "Actividad": "Comida comunitaria"},
+                {"Lugar": "Ocongate", "Distancia": "65 km", "Altitud": "3,800 msnm", "Actividad": "Visita al prioste"},
+                {"Lugar": "Mahuayani", "Distancia": "85 km", "Altitud": "4,200 msnm", "Actividad": "Inicio caminata"},
+                {"Lugar": "Santuario", "Distancia": "95 km", "Altitud": "4,800 msnm", "Actividad": "Misa de Ukukus"},
+                {"Lugar": "Machu Cruz", "Distancia": "98 km", "Altitud": "4,900 msnm", "Actividad": "Pausa ritual"},
+                {"Lugar": "Yanaqocha", "Distancia": "102 km", "Altitud": "4,850 msnm", "Actividad": "Despedida"},
+                {"Lugar": "Yanaqancha", "Distancia": "106 km", "Altitud": "4,750 msnm", "Actividad": "Descanso 4h"},
+                {"Lugar": "Q'espi Cruz", "Distancia": "115 km", "Altitud": "4,600 msnm", "Actividad": "Canto a medianoche"},
+                {"Lugar": "Inti Alabado", "Distancia": "120 km", "Altitud": "4,500 msnm", "Actividad": "Saludo al sol"},
+                {"Lugar": "Tayancani", "Distancia": "125 km", "Altitud": "3,800 msnm", "Actividad": "Fin de peregrinación"}
+            ])
+            st.dataframe(hitos, use_container_width=True, hide_index=True)
     
     # ===== FOOTER =====
     st.markdown("""
@@ -479,7 +638,7 @@ def main():
             <span>•</span>
             <span>🗺️ 16 lugares sagrados</span>
             <span>•</span>
-            <span>🖱️ Click en el mapa</span>
+            <span>⛰️ Perfil de altitud</span>
         </div>
         <div style="font-size: 0.75rem; color: #95a5a6;">
             Conocimiento ancestral · Nación Paucartambo · Sinakara, Cusco
