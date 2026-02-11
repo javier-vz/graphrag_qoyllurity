@@ -277,11 +277,11 @@ def asignar_icono(nombre):
         return "📍"
 
 # ============================================================================
-# MAPA - SOLO CON LUGARES DEL TTL
+# MAPA - SOLO CON LUGARES DEL TTL - VERSIÓN CON PUNTOS VISIBLES
 # ============================================================================
 def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
     """
-    Mapa con lugares EXCLUSIVAMENTE del TTL
+    Mapa con lugares EXCLUSIVAMENTE del TTL - PUNTOS VISIBLES
     """
     
     # Estilos de mapa
@@ -294,7 +294,7 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
     
     fig = go.Figure()
     
-    # ===== AGREGAR RUTAS (solo si existen en TTL) =====
+    # ===== AGREGAR RUTAS =====
     if tipo_ruta in ["vehicular", "todas"]:
         coords = []
         for l in RUTA_VEHICULAR:
@@ -325,13 +325,26 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
                 hoverinfo="skip"
             ))
     
-    # ===== AGREGAR LUGARES - SOLO DEL TTL =====
+    # ===== AGREGAR LUGARES - CON PUNTOS GRANDES Y OSCUROS =====
     for nombre, lugar in LUGARES_TTL.items():
-        color = generar_color(nombre)
-        icono = asignar_icono(nombre)
+        # Color FIJO y OSCURO para que se vean
+        color = "#c0392b"  # Rojo oscuro - VISIBLE
+        
+        # Tamaño GRANDE
+        tamanio = 14
+        
+        # Borde blanco para destacar
+        marker_dict = {
+            "size": tamanio,
+            "color": color,
+            "symbol": "marker",
+            "line": {"width": 1, "color": "white"}
+        }
+        
+        icono = "📍"
         
         hover_text = f"""
-        <b style='font-size: 16px; color: {color};'>{icono} {nombre}</b><br>
+        <b style='font-size: 16px; color: #000;'>{icono} {nombre}</b><br>
         <span style='font-size: 13px;'>
         📏 {lugar['lat']:.4f}, {lugar['lon']:.4f}<br>
         🏔️ {lugar['alt']:.0f} msnm<br>
@@ -345,17 +358,13 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
             lat=[lugar["lat"]],
             lon=[lugar["lon"]],
             mode="markers",
-            marker=dict(
-                size=12,
-                color=color,
-                symbol="marker"
-            ),
+            marker=marker_dict,
             name=nombre,
             hovertemplate=hover_text + "<extra></extra>",
             hoverlabel=dict(
                 bgcolor="white",
-                bordercolor=color,
-                font=dict(size=12, color="#1e3c72")
+                bordercolor="#000",
+                font=dict(size=12, color="#000")
             ),
             showlegend=False
         ))
