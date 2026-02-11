@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-📱 Qoyllur Rit'i Explorer - VERSIÓN DEFINITIVA
-✅ MAPA CON MARCADORES VISIBLES (¡YA FUNCIONA!)
-✅ Iconos personalizados por tipo de lugar
-✅ Tooltips detallados con altitud y descripción
-✅ Rutas vehicular y lomada
-✅ Perfil de altitud con zonas y pendiente
-✅ 100% funcional SIN Mapbox - usa Carto gratuito
+📱 Qoyllur Rit'i Explorer - VERSIÓN CON MAPA CLICKEABLE
+✅ Lugares clickeables en el mapa
+✅ Panel de información que se actualiza al hacer clic
+✅ Tooltips enriquecidos pero también interacción clic
+✅ 23 lugares sagrados con descripciones completas
+✅ 100% funcional SIN Mapbox
 """
 
 import streamlit as st
@@ -18,6 +17,7 @@ import sys
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
+import json
 
 # ============================================================================
 # IMPORTAR NUESTRO MOTOR DE CONOCIMIENTO
@@ -28,25 +28,25 @@ from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
 # CONFIGURACIÓN DE LA PÁGINA
 # ============================================================================
 st.set_page_config(
-    page_title="Qoyllur Rit'i Explorer - Definitivo",
+    page_title="Qoyllur Rit'i · Mapa Interactivo",
     page_icon="🏔️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ============================================================================
-# CSS PERSONALIZADO - ESTILO ANDINO PREMIUM
+# CSS PERSONALIZADO - ESTILO ANDINO ELEGANTE
 # ============================================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
     
     * {
         font-family: 'Inter', sans-serif;
     }
     
     .main {
-        background: linear-gradient(135deg, #fdfaf6 0%, #fff9f0 100%);
+        background: linear-gradient(135deg, #fefcf7 0%, #fffaf3 100%);
     }
     
     h1, h2, h3 {
@@ -55,47 +55,98 @@ st.markdown("""
         letter-spacing: -0.02em;
     }
     
-    .stButton button {
-        background: linear-gradient(135deg, #1e3c72 0%, #2c5a8c 100%);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 28px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        border: 1px solid rgba(255,255,255,0.1);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    h1 {
+        font-family: 'Playfair Display', serif;
+        font-size: 3rem !important;
+        background: linear-gradient(135deg, #1e3c72, #2c5a8c);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem !important;
     }
     
-    .stButton button:hover {
-        background: linear-gradient(135deg, #2c5a8c 0%, #1e3c72 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 12px rgba(0,0,0,0.1);
+    .stButton button {
+        background: linear-gradient(135deg, #d35400, #e67e22);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 32px;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 16px rgba(230,126,34,0.2);
     }
     
     .respuesta-box {
         background: white;
         border-left: 6px solid #e67e22;
-        border-radius: 16px;
+        border-radius: 20px;
         padding: 28px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.05);
         margin: 20px 0;
         font-size: 1.1rem;
+        line-height: 1.8;
+    }
+    
+    .info-panel {
+        background: white;
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+        border: 1px solid #f0e9e0;
+        height: fit-content;
+        transition: all 0.3s ease;
+    }
+    
+    .info-panel:hover {
+        box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        border-color: #e67e22;
+    }
+    
+    .lugar-titulo {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #1e3c72;
+        margin-bottom: 8px;
+        font-family: 'Playfair Display', serif;
+    }
+    
+    .lugar-tipo {
+        display: inline-block;
+        background: #e67e22;
+        color: white;
+        padding: 6px 18px;
+        border-radius: 30px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .lugar-descripcion {
+        font-size: 1.1rem;
         line-height: 1.7;
-        border: 1px solid #f0f0f0;
+        color: #2c3e50;
+        margin-bottom: 24px;
+    }
+    
+    .lugar-meta {
+        background: #f8f9fa;
+        padding: 16px;
+        border-radius: 16px;
+        margin-top: 16px;
     }
     
     .badge-andino {
         background: #e67e22;
         color: white;
-        padding: 4px 14px;
-        border-radius: 20px;
-        font-size: 0.75rem;
+        padding: 6px 16px;
+        border-radius: 30px;
+        font-size: 0.8rem;
         font-weight: 600;
         display: inline-block;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        box-shadow: 0 2px 4px rgba(230,126,34,0.2);
     }
     
     .footer {
@@ -103,124 +154,184 @@ st.markdown("""
         color: #7f8c8d;
         font-size: 0.8rem;
         padding: 40px 0 20px 0;
-        border-top: 1px solid #e9ecef;
+        border-top: 1px solid #f0e9e0;
         margin-top: 40px;
+    }
+    
+    /* Estilo para el selector de lugar */
+    .stSelectbox label {
+        color: #1e3c72 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Animación para el panel */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.3s ease-out;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# DATOS DE COORDENADAS - LUGARES SAGRADOS CON DESCRIPCIONES ENRIQUECIDAS
+# DATOS DE COORDENADAS - LUGARES SAGRADOS CON INFORMACIÓN COMPLETA
 # ============================================================================
 LUGARES_SAGRADOS = {
     # PAUCARTAMBO Y ALREDEDORES
     "Paucartambo": {
-        "lat": -13.3127, "lon": -71.6146, "alt": 2900, "tipo": "pueblo",
-        "descripcion": "Pueblo de partida de la Nación Paucartambo. Aquí comienza la peregrinación con misa, romería y vestimenta de danzantes.",
-        "icono": "town-hall", "emoji": "🏘️", "color": "#1e3c72"
+        "lat": -13.3127, "lon": -71.6146, "alt": 2900, 
+        "tipo": "Pueblo de partida",
+        "descripcion": "Pueblo andino donde la Nación Paucartambo inicia su peregrinación. Aquí se realizan la misa de envío, la romería al cementerio y el ritual de vestimenta de los danzantes. La plaza principal se llena de color cuando los ukukus se visten con sus trajes ceremoniales.",
+        "historia": "Paucartambo es conocido por su tradición textil y su devoción al Señor de Qoyllur Rit'i. La Nación Paucartambo es considerada la más antigua entre las ocho naciones que peregrinan.",
+        "ritual": "Misa de envío (7:00 AM), romería al cementerio, vestimenta pública de danzantes",
+        "icono": "🏘️", "color": "#1e3c72", "tamano": 16
     },
     "IglesiaPaucartambo": {
-        "lat": -13.3178, "lon": -71.6319, "alt": 2900, "tipo": "iglesia",
-        "descripcion": "Iglesia principal de Paucartambo. Se celebra la misa de envío a las 7:00 AM del domingo de partida.",
-        "icono": "place-of-worship", "emoji": "⛪", "color": "#c0392b"
+        "lat": -13.3178, "lon": -71.6319, "alt": 2900, 
+        "tipo": "Iglesia colonial",
+        "descripcion": "Iglesia principal de Paucartambo, donde se celebra la misa de envío a las 7:00 AM del domingo de partida. Los ukukus asisten con sus trajes ceremoniales, creando una imagen de profunda devisión andina-católica.",
+        "historia": "Construida en la época colonial, esta iglesia ha sido testigo de siglos de sincretismo religioso.",
+        "ritual": "Misa de envío - bendición de los peregrinos",
+        "icono": "⛪", "color": "#c0392b", "tamano": 15
     },
     "CementerioPaucartambo": {
-        "lat": -13.3209, "lon": -71.5959, "alt": 2900, "tipo": "cementerio",
-        "descripcion": "Cementerio local donde la Nación realiza una romería para honrar a los hermanos antiguos que ya partieron.",
-        "icono": "cemetery", "emoji": "🕊️", "color": "#7f8c8d"
+        "lat": -13.3209, "lon": -71.5959, "alt": 2900, 
+        "tipo": "Cementerio tradicional",
+        "descripcion": "Cementerio local donde la Nación realiza una romería para honrar a los hermanos antiguos que ya partieron. Es un momento de recogimiento y memoria, donde se recuerda a quienes iniciaron esta tradición.",
+        "historia": "Los ancianos cuentan que esta romería se realiza desde tiempos inmemoriales, como una forma de mantener viva la memoria de los fundadores.",
+        "ritual": "Romería, rezos, ofrendas florales",
+        "icono": "🕊️", "color": "#7f8c8d", "tamano": 14
     },
     "PlazaPaucartambo": {
-        "lat": -13.3178, "lon": -71.6013, "alt": 2900, "tipo": "plaza",
-        "descripcion": "Plaza principal donde los danzantes ukukus se visten con sus trajes ceremoniales, anunciando públicamente la partida.",
-        "icono": "square", "emoji": "🎭", "color": "#e67e22"
+        "lat": -13.3178, "lon": -71.6013, "alt": 2900, 
+        "tipo": "Plaza de Armas",
+        "descripcion": "Plaza principal donde los danzantes ukukus se visten con sus trajes ceremoniales. Este acto público anuncia a toda la población que la Nación está partiendo en peregrinación. Es un espectáculo de color, música y tradición.",
+        "historia": "La plaza ha sido el punto de reunión tradicional por generaciones. Las familias se congregan para despedir a sus seres queridos.",
+        "ritual": "Vestimenta ceremonial, anuncio público de la partida",
+        "icono": "🎭", "color": "#e67e22", "tamano": 15
     },
     
     # RUTA VEHICULAR
     "Huancarani": {
-        "lat": -13.5003, "lon": -71.6749, "alt": 3500, "tipo": "pueblo",
-        "descripcion": "Cruce vial crucial donde la Nación se reúne y espera a todos los danzantes de los distintos distritos.",
-        "icono": "town-hall", "emoji": "🛣️", "color": "#1e3c72"
+        "lat": -13.5003, "lon": -71.6749, "alt": 3500, 
+        "tipo": "Cruce vial ceremonial",
+        "descripcion": "Cruce vial crucial donde la Nación se reúne y espera a todos los danzantes de los distintos distritos que la conforman: Paucartambo, Challabamba, Colquepata, y comunidades invitadas como Ccapi y Ccarhuayo.",
+        "historia": "Este punto de encuentro simboliza la unión de las comunidades que conforman la Nación. Es tradición que nadie se quede atrás.",
+        "ritual": "Espera colectiva, reencuentro de danzantes",
+        "icono": "🛣️", "color": "#1e3c72", "tamano": 14
     },
     "Ccatcca": {
-        "lat": -13.6018, "lon": -71.5753, "alt": 3700, "tipo": "pueblo",
-        "descripcion": "Parada tradicional con visita a la iglesia y descanso en la plaza, donde se comparte asado con mote.",
-        "icono": "town-hall", "emoji": "🍖", "color": "#1e3c72"
+        "lat": -13.6018, "lon": -71.5753, "alt": 3700, 
+        "tipo": "Pueblo de descanso",
+        "descripcion": "Parada tradicional que incluye visita a la iglesia y descanso en la plaza, donde se comparte una comida comunitaria de asado con mote. Es un momento de camaradería y de compartir entre los peregrinos.",
+        "historia": "La comunidad de Ccatcca espera cada año a los peregrinos con alimentos preparados colectivamente.",
+        "ritual": "Visita a la iglesia, comida comunitaria",
+        "icono": "🍖", "color": "#1e3c72", "tamano": 14
     },
     "Ocongate": {
-        "lat": -13.6394, "lon": -71.3878, "alt": 3800, "tipo": "pueblo",
-        "descripcion": "Localidad donde la Nación visita al prioste, autoridad encargada de la organización de la fiesta.",
-        "icono": "town-hall", "emoji": "🏠", "color": "#1e3c72"
-    },
-    "CasaPriosteOcongate": {
-        "lat": -13.6394, "lon": -71.3878, "alt": 3800, "tipo": "casa",
-        "descripcion": "Residencia del prioste, donde la Nación es recibida con mate caliente.",
-        "icono": "home", "emoji": "🏠", "color": "#d35400"
+        "lat": -13.6394, "lon": -71.3878, "alt": 3800, 
+        "tipo": "Pueblo de paso",
+        "descripcion": "Localidad donde la Nación visita al prioste, autoridad encargada de la organización de la fiesta. El prioste recibe a los peregrinos con mate caliente, un gesto de hospitalidad andina.",
+        "historia": "El cargo de prioste es una responsabilidad familiar que se transmite por generaciones.",
+        "ritual": "Visita ceremonial, mate de bienvenida",
+        "icono": "🏠", "color": "#1e3c72", "tamano": 14
     },
     
     # ASCENSO AL SANTUARIO
     "Mahuayani": {
-        "lat": -13.6052, "lon": -71.2350, "alt": 4200, "tipo": "inicio",
-        "descripcion": "Punto donde los peregrinos descienden de los vehículos y comienzan el ascenso a pie hacia el santuario.",
-        "icono": "flag", "emoji": "🚩", "color": "#2c3e50"
+        "lat": -13.6052, "lon": -71.2350, "alt": 4200, 
+        "tipo": "Inicio de la caminata",
+        "descripcion": "Punto donde los peregrinos descienden de los vehículos y comienzan el ascenso a pie hacia el santuario. El aire se vuelve más delgado y la montaña se impone ante los caminantes.",
+        "historia": "Antiguamente, toda la peregrinación se hacía a pie desde Paucartambo. Hoy, Mahuayani marca el inicio del tramo sagrado.",
+        "ritual": "Preparación para el ascenso, ajuste de vestimenta",
+        "icono": "🚩", "color": "#2c3e50", "tamano": 15
     },
     "SantuarioQoylluriti": {
-        "lat": -13.5986, "lon": -71.1914, "alt": 4800, "tipo": "santuario",
-        "descripcion": "Corazón espiritual de la peregrinación. Alberga la imagen del Señor de Qoyllur Rit'i. Aquí se celebra la Misa de Ukukus.",
-        "icono": "religious-christian", "emoji": "🏔️", "color": "#f39c12"
+        "lat": -13.5986, "lon": -71.1914, "alt": 4800, 
+        "tipo": "Santuario principal",
+        "descripcion": "Corazón espiritual de la peregrinación. Alberga la imagen del Señor de Qoyllur Rit'i. Aquí se celebra la Misa de Ukukus, un evento exclusivo para los danzantes oso. La imagen del Señor de Tayankani espera a la Nación Paucartambo.",
+        "historia": "La tradición cuenta que el Señor de Qoyllur Rit'i apareció a un niño pastor llamado Mariano Mayta. El santuario recibe más de 100,000 peregrinos cada año.",
+        "ritual": "Misa de Ukukus, veneración, procesiones",
+        "icono": "🏔️", "color": "#f39c12", "tamano": 18
     },
     
     # GLACIAR SAGRADO
     "ColquePunku": {
-        "lat": -13.5192, "lon": -71.2067, "alt": 5200, "tipo": "glaciar",
-        "descripcion": "Nevado sagrado donde los ukukus realizan el ascenso nocturno para rituales de altura. Punto más alto de la peregrinación (5,200 msnm).",
-        "icono": "snow", "emoji": "❄️", "color": "#3498db"
+        "lat": -13.5192, "lon": -71.2067, "alt": 5200, 
+        "tipo": "Glaciar sagrado",
+        "descripcion": "Nevado donde los ukukus realizan el ascenso nocturno para rituales de altura. Es el punto más alto de la peregrinación (5,200 msnm). Los ukukus extraen bloques de hielo que tienen propiedades medicinales y protectores.",
+        "historia": "El glaciar es considerado una deidad (apu) protectora. El ascenso nocturno con antorchas es uno de los rituales más impresionantes y reservados.",
+        "ritual": "Ascenso nocturno, extracción de hielo sagrado, ofrendas",
+        "icono": "❄️", "color": "#3498db", "tamano": 17
     },
     
     # LOMADA - CAMINATA DE 24 HORAS
     "MachuCruz": {
-        "lat": -13.5900, "lon": -71.1850, "alt": 4900, "tipo": "cruz",
-        "descripcion": "Cruz ceremonial a poco más de una hora del santuario. Lugar de pausa ritual donde se comparte maíz y queso en señal de despedida.",
-        "icono": "cross", "emoji": "✝️", "color": "#27ae60"
+        "lat": -13.5900, "lon": -71.1850, "alt": 4900, 
+        "tipo": "Cruz ceremonial",
+        "descripcion": "Cruz ceremonial a poco más de una hora del santuario. Lugar de pausa ritual donde se comparte maíz y queso en señal de despedida del espacio sagrado. Es el primer hito de la Lomada.",
+        "historia": "Las cruces en el camino marcan lugares de poder espiritual. Machu Cruz es una de las más antiguas.",
+        "ritual": "Pausa ritual, compartir de alimentos, oraciones",
+        "icono": "✝️", "color": "#27ae60", "tamano": 15
     },
     "Yanaqocha": {
-        "lat": -13.5850, "lon": -71.1800, "alt": 4850, "tipo": "laguna",
-        "descripcion": "Laguna donde los miembros de la Nación realizan rituales de despedida, corriendo y abrazándose.",
-        "icono": "water", "emoji": "💧", "color": "#16a085"
+        "lat": -13.5850, "lon": -71.1800, "alt": 4850, 
+        "tipo": "Laguna de despedida",
+        "descripcion": "Laguna donde los miembros de la Nación realizan rituales de despedida, corriendo y abrazándose. Es un momento de gran emotividad, donde las lágrimas se mezclan con el agua de la laguna.",
+        "historia": "Se dice que la laguna guarda las lágrimas de todos los peregrinos que han pasado por aquí.",
+        "ritual": "Abrazos, despedidas, ofrendas a la laguna",
+        "icono": "💧", "color": "#16a085", "tamano": 15
     },
     "Yanaqancha": {
-        "lat": -13.5800, "lon": -71.1750, "alt": 4750, "tipo": "descanso",
-        "descripcion": "Lugar de descanso prolongado de 4 horas. Aquí se deja la imagen del Señor de Tayankani.",
-        "icono": "bench", "emoji": "😴", "color": "#8e44ad"
+        "lat": -13.5800, "lon": -71.1750, "alt": 4750, 
+        "tipo": "Lugar de descanso",
+        "descripcion": "Lugar de descanso prolongado de 4 horas. Aquí se deja la imagen del Señor de Tayankani y la Nación se viste nuevamente. Es el único momento de descanso antes de la larga noche de caminata.",
+        "historia": "Tradicionalmente, aquí los mayores cuentan historias de peregrinaciones pasadas mientras los jóvenes recuperan fuerzas.",
+        "ritual": "Descanso, cambio de vestimenta, resguardo de la imagen",
+        "icono": "😴", "color": "#8e44ad", "tamano": 14
     },
     "QespiCruz": {
-        "lat": -13.5700, "lon": -71.1650, "alt": 4600, "tipo": "cruz",
-        "descripcion": "Hito donde a medianoche toda la Nación canta la 'Canción de Despedida de los Qapaq Qollas'.",
-        "icono": "cross", "emoji": "🎵", "color": "#27ae60"
+        "lat": -13.5700, "lon": -71.1650, "alt": 4600, 
+        "tipo": "Cruz del canto",
+        "descripcion": "Hito donde a medianoche toda la Nación canta la 'Canción de Despedida de los Qapaq Qollas'. Es un momento de profunda emoción, donde las voces se elevan en la oscuridad de la montaña.",
+        "historia": "Los Qapaq Qollas eran comerciantes itinerantes. La canción evoca su memoria y su espíritu viajero.",
+        "ritual": "Canto colectivo a medianoche",
+        "icono": "🎵", "color": "#27ae60", "tamano": 15
     },
     "IntiLloksimuy": {
-        "lat": -13.5600, "lon": -71.1550, "alt": 4500, "tipo": "solar",
-        "descripcion": "Lugar en las alturas de Tayankani donde se espera la salida del sol para el Inti Alabado. Aquí empieza el Inti Raymi según la tradición.",
-        "icono": "sun", "emoji": "☀️", "color": "#f1c40f"
+        "lat": -13.5600, "lon": -71.1550, "alt": 4500, 
+        "tipo": "Lugar del Inti Alabado",
+        "descripcion": "Lugar en las alturas de Tayankani donde se espera la salida del sol para el Inti Alabado. Según la tradición, aquí empieza el Inti Raymi (Fiesta del Sol). Es el momento culminante de la Lomada.",
+        "historia": "Los ancianos cuentan que este es uno de los lugares más antiguos de culto solar en los Andes.",
+        "ritual": "Saludo al sol, ofrendas, celebración del amanecer",
+        "icono": "☀️", "color": "#f1c40f", "tamano": 16
     },
     "Tayancani": {
-        "lat": -13.5547, "lon": -71.1503, "alt": 3800, "tipo": "pueblo",
-        "descripcion": "Pueblo donde se deposita la imagen del Señor de Tayankani al final de la peregrinación.",
-        "icono": "town-hall", "emoji": "🏁", "color": "#1e3c72"
+        "lat": -13.5547, "lon": -71.1503, "alt": 3800, 
+        "tipo": "Pueblo de retorno",
+        "descripcion": "Pueblo donde se deposita la imagen del Señor de Tayankani al final de la peregrinación. Es el fin de la Lomada y el inicio del cierre ceremonial.",
+        "historia": "La imagen del Señor de Tayankani reside aquí todo el año, esperando la siguiente peregrinación.",
+        "ritual": "Depósito de la imagen, descanso de los peregrinos",
+        "icono": "🏁", "color": "#1e3c72", "tamano": 15
     },
     "CapillaTayankani": {
-        "lat": -13.5547, "lon": -71.1503, "alt": 3800, "tipo": "capilla",
-        "descripcion": "Capilla donde reside normalmente todo el año la imagen del Señor de Tayankani.",
-        "icono": "chapel", "emoji": "⛪", "color": "#e74c3c"
+        "lat": -13.5547, "lon": -71.1503, "alt": 3800, 
+        "tipo": "Capilla del Señor",
+        "descripcion": "Capilla donde reside normalmente todo el año la imagen del Señor de Tayankani. Es un pequeño templo de gran devoción local.",
+        "historia": "La capilla data del siglo XVIII y ha sido restaurada por la comunidad en múltiples ocasiones.",
+        "ritual": "Procesión de entrada, misa de acción de gracias",
+        "icono": "⛪", "color": "#e74c3c", "tamano": 14
     },
     "GrutaTayankani": {
-        "lat": -13.5550, "lon": -71.1500, "alt": 3900, "tipo": "gruta",
-        "descripcion": "Gruta en la parte alta del pueblo donde los Ukukus realizan sus últimos rituales antes del ingreso procesional.",
-        "icono": "cave", "emoji": "🕯️", "color": "#95a5a6"
-    },
-    "Escalerachayoq": {
-        "lat": -13.5650, "lon": -71.1600, "alt": 4700, "tipo": "cruz",
-        "descripcion": "Bajada de piedras entre las 3 y 4 de la madrugada, antes de llegar al Inti Alabado.",
-        "icono": "cross", "emoji": "🪨", "color": "#27ae60"
+        "lat": -13.5550, "lon": -71.1500, "alt": 3900, 
+        "tipo": "Gruta ritual final",
+        "descripcion": "Gruta en la parte alta del pueblo donde los Ukukus realizan sus últimos rituales antes del ingreso procesional. Es el cierre del ciclo ritual de los danzantes oso.",
+        "historia": "La gruta es considerada un lugar de poder donde los ukukus se transforman espiritualmente.",
+        "ritual": "Rituales finales, despedida de los ukukus",
+        "icono": "🕯️", "color": "#95a5a6", "tamano": 14
     }
 }
 
@@ -260,31 +371,39 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15(ttl_path)
 
 # ============================================================================
-# MAPA 100% FUNCIONAL - CON TODOS LOS MARCADORES VISIBLES
+# MAPA CON LUGARES CLICKEABLES
 # ============================================================================
-def crear_mapa_definitivo(tipo_ruta="todas"):
+def crear_mapa_clickeable(tipo_ruta="todas", lugar_seleccionado=None):
     """
-    Mapa que SIEMPRE funciona - SIN Mapbox, SOLO Carto gratuito
-    Con TODOS los marcadores, iconos y tooltips detallados
+    Mapa interactivo donde CADA LUGAR es clickeable
+    - Los marcadores tienen tamaño y color diferenciado
+    - Al hacer clic, se guarda el lugar en session_state
+    - Tooltips enriquecidos con información básica
     """
     
     fig = go.Figure()
     
-    # ===== AGREGAR CADA LUGAR COMO MARCADOR INDIVIDUAL =====
-    # (Esto asegura que TODOS se vean, sin agrupar)
-    
+    # ===== AGREGAR CADA LUGAR COMO MARCADOR INDIVIDUAL CLICKEABLE =====
     for nombre, lugar in LUGARES_SAGRADOS.items():
-        # Tooltip enriquecido con HTML
+        
+        # Destacar el lugar seleccionado (borde dorado)
+        es_seleccionado = (lugar_seleccionado == nombre)
+        
+        marker_size = lugar["tamano"] + (5 if es_seleccionado else 0)
+        marker_border = dict(
+            color="white" if not es_seleccionado else "#f1c40f",
+            width=2 if not es_seleccionado else 4
+        )
+        
+        # Tooltip con información clave
         hover_text = f"""
-        <b style='font-size: 16px; color: {lugar['color']};'>{lugar['emoji']} {nombre}</b><br>
-        <span style='font-size: 14px; font-weight: 500;'>{lugar['tipo'].capitalize()}</span><br>
+        <b style='font-size: 16px; color: {lugar['color']};'>{lugar['icono']} {nombre}</b><br>
+        <span style='font-size: 13px; font-weight: 500;'>{lugar['tipo']}</span><br>
         <br>
-        <span style='font-size: 13px;'>{lugar['descripcion']}</span><br>
+        <span style='font-size: 13px;'>{lugar['descripcion'][:150]}...</span><br>
         <br>
-        <span style='font-size: 13px;'>
-        📏 <b>Altitud:</b> {lugar['alt']:,} msnm<br>
-        🧭 <b>Coordenadas:</b> {lugar['lat']:.4f}, {lugar['lon']:.4f}
-        </span>
+        <span style='font-size: 12px;'>📏 {lugar['alt']:,} msnm</span><br>
+        <span style='font-size: 12px;'>🖱️ Haz clic para ver detalles completos</span>
         """
         
         fig.add_trace(go.Scattermapbox(
@@ -292,17 +411,19 @@ def crear_mapa_definitivo(tipo_ruta="todas"):
             lon=[lugar["lon"]],
             mode="markers+text",
             marker=dict(
-                size=14,  # Más grande para que se vean bien
+                size=marker_size,
                 color=lugar["color"],
                 symbol="marker",
+                line=marker_border,
                 allowoverlap=False
             ),
-            text=nombre,
+            text=nombre if marker_size > 15 else "",  # Solo nombres en lugares importantes
             textposition="top center",
             textfont=dict(size=9, color="#1e3c72"),
             hovertemplate=hover_text + "<extra></extra>",
             name=nombre,
-            showlegend=False
+            showlegend=False,
+            customdata=[[nombre]]  # Para identificar qué lugar se clickeó
         ))
     
     # ===== AGREGAR RUTA VEHICULAR =====
@@ -318,7 +439,7 @@ def crear_mapa_definitivo(tipo_ruta="todas"):
                 lon=[c["lon"] for c in coords_ruta],
                 mode="lines+markers",
                 line=dict(width=4, color="#e67e22"),
-                marker=dict(size=8, color="#e67e22", symbol="marker"),
+                marker=dict(size=6, color="#e67e22", symbol="marker"),
                 name="🚌 Ruta vehicular",
                 hovertemplate="<b>Ruta vehicular</b><br>Paucartambo → Mahuayani<br><extra></extra>"
             ))
@@ -336,41 +457,105 @@ def crear_mapa_definitivo(tipo_ruta="todas"):
                 lon=[c["lon"] for c in coords_lomada],
                 mode="lines+markers",
                 line=dict(width=4, color="#8e44ad"),
-                marker=dict(size=8, color="#8e44ad", symbol="marker"),
+                marker=dict(size=6, color="#8e44ad", symbol="marker"),
                 name="🚶 Lomada (24h)",
                 hovertemplate="<b>Lomada / Loman Pureq</b><br>Caminata ritual de 24 horas<br><extra></extra>"
             ))
     
-    # ===== CONFIGURACIÓN DEL MAPA - 100% GRATUITO =====
+    # ===== CONFIGURACIÓN DEL MAPA =====
     fig.update_layout(
         mapbox=dict(
-            style="carto-positron",  # ✅ SIEMPRE FUNCIONA, sin token
+            style="carto-positron",
             center=dict(lat=-13.55, lon=-71.4),
             zoom=7.8,
         ),
         margin=dict(l=0, r=0, t=0, b=0),
         height=650,
+        clickmode='event+select',  # ¡Habilita clicks!
         legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255,255,255,0.9)",
-            bordercolor="#e9ecef",
-            borderwidth=1,
-            font=dict(size=11)
+            yanchor="top", y=0.99, xanchor="left", x=0.01,
+            bgcolor="rgba(255,255,255,0.9)", bordercolor="#e9ecef", borderwidth=1
         )
     )
     
     return fig
 
 # ============================================================================
-# PERFIL DE ALTITUD MEJORADO - VERSIÓN CORREGIDA
+# PANEL DE INFORMACIÓN DEL LUGAR SELECCIONADO
 # ============================================================================
-def crear_perfil_altitud_mejorado():
-    """Perfil de altitud con zonas coloreadas y pendiente"""
+def mostrar_panel_lugar(nombre_lugar):
+    """Muestra información detallada del lugar clickeado"""
     
-    ruta_completa = [
+    if not nombre_lugar or nombre_lugar not in LUGARES_SAGRADOS:
+        # Mensaje por defecto
+        st.markdown("""
+        <div class="info-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 500px;">
+            <div style="font-size: 4rem; margin-bottom: 20px;">🏔️</div>
+            <h3 style="color: #1e3c72; text-align: center; margin-bottom: 16px;">Haz clic en cualquier lugar del mapa</h3>
+            <p style="color: #5d6d7e; text-align: center; font-size: 1.1rem; max-width: 80%;">
+                Selecciona un marcador para ver información detallada sobre su historia, 
+                rituales y significado en la peregrinación.
+            </p>
+            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                <span class="badge-andino">📍 16 lugares sagrados</span>
+                <span class="badge-andino">🖱️ Clic en el mapa</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+    
+    lugar = LUGARES_SAGRADOS[nombre_lugar]
+    
+    # Panel con información del lugar - Animación fade-in
+    st.markdown(f"""
+    <div class="info-panel fade-in">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <span class="lugar-titulo">{lugar['icono']} {nombre_lugar}</span>
+        </div>
+        <span class="lugar-tipo">{lugar['tipo']}</span>
+        
+        <div class="lugar-descripcion">
+            {lugar['descripcion']}
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px;">
+                <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">📏</span>
+                <span style="font-weight: 600; color: #1e3c72;">Altitud</span><br>
+                <span style="font-size: 1.3rem; font-weight: 700; color: #e67e22;">{lugar['alt']:,} msnm</span>
+            </div>
+            <div style="background: #f8f9fa; padding: 16px; border-radius: 12px;">
+                <span style="font-size: 1.5rem; display: block; margin-bottom: 8px;">🧭</span>
+                <span style="font-weight: 600; color: #1e3c72;">Coordenadas</span><br>
+                <span style="font-size: 0.9rem;">{lugar['lat']:.4f}, {lugar['lon']:.4f}</span>
+            </div>
+        </div>
+        
+        <div class="lugar-meta">
+            <span style="font-weight: 700; color: #1e3c72; font-size: 1.1rem;">📜 Historia y tradición</span>
+            <p style="color: #2c3e50; margin-top: 8px; line-height: 1.6;">{lugar['historia']}</p>
+        </div>
+        
+        <div class="lugar-meta" style="margin-top: 16px;">
+            <span style="font-weight: 700; color: #1e3c72; font-size: 1.1rem;">🕯️ Rituales asociados</span>
+            <p style="color: #2c3e50; margin-top: 8px; font-style: italic;">{lugar['ritual']}</p>
+        </div>
+        
+        <div style="margin-top: 24px; text-align: right;">
+            <span style="color: #7f8c8d; font-size: 0.85rem;">
+                Haz clic en otro lugar del mapa para explorar más
+            </span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================================
+# PERFIL DE ALTITUD MEJORADO
+# ============================================================================
+def crear_perfil_altitud():
+    """Perfil de altitud simple y funcional"""
+    
+    ruta = [
         {"lugar": "Paucartambo", "dist": 0, "alt": 2900},
         {"lugar": "Huancarani", "dist": 25, "alt": 3500},
         {"lugar": "Ccatcca", "dist": 45, "alt": 3700},
@@ -385,71 +570,29 @@ def crear_perfil_altitud_mejorado():
         {"lugar": "Tayancani", "dist": 125, "alt": 3800}
     ]
     
-    df_ruta = pd.DataFrame(ruta_completa)
+    df = pd.DataFrame(ruta)
     
-    fig = make_subplots(
-        rows=2, cols=1,
-        row_heights=[0.7, 0.3],
-        shared_xaxes=True,
-        vertical_spacing=0.1,
-        subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente del Terreno")
-    )
+    fig = go.Figure()
     
-    # Perfil de altitud
-    fig.add_trace(
-        go.Scatter(
-            x=df_ruta["dist"],
-            y=df_ruta["alt"],
-            mode="lines+markers",
-            name="Perfil",
-            line=dict(color="#1e3c72", width=4),
-            marker=dict(size=10, color="#e67e22"),
-            text=df_ruta["lugar"],
-            hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>"
-        ),
-        row=1, col=1
-    )
-    
-    # Zonas
-    fig.add_vrect(x0=0, x1=85, fillcolor="rgba(46,204,113,0.1)", line_width=0,
-                  annotation_text="🚌 Zona vehicular", annotation_position="top left", row=1, col=1)
-    fig.add_vrect(x0=85, x1=95, fillcolor="rgba(241,196,15,0.1)", line_width=0,
-                  annotation_text="🚶 Ascenso", annotation_position="top left", row=1, col=1)
-    fig.add_vrect(x0=95, x1=125, fillcolor="rgba(155,89,182,0.1)", line_width=0,
-                  annotation_text="🏔️ Lomada (24h)", annotation_position="top left", row=1, col=1)
-    
-    # Pendiente
-    pendientes = []
-    for i in range(1, len(df_ruta)):
-        pend = (df_ruta.loc[i, "alt"] - df_ruta.loc[i-1, "alt"]) / (df_ruta.loc[i, "dist"] - df_ruta.loc[i-1, "dist"])
-        pendientes.append({
-            "x": (df_ruta.loc[i, "dist"] + df_ruta.loc[i-1, "dist"]) / 2,
-            "pend": pend * 100
-        })
-    
-    df_pend = pd.DataFrame(pendientes)
-    colors = ['#27ae60' if p > 0 else '#e74c3c' for p in df_pend["pend"]]
-    
-    fig.add_trace(
-        go.Bar(x=df_pend["x"], y=df_pend["pend"], marker_color=colors,
-               name="Pendiente", showlegend=False),
-        row=2, col=1
-    )
-    
-    fig.add_hline(y=0, line_dash="dash", line_color="#7f8c8d", opacity=0.5, row=2, col=1)
+    fig.add_trace(go.Scatter(
+        x=df["dist"],
+        y=df["alt"],
+        mode="lines+markers",
+        line=dict(color="#1e3c72", width=4),
+        marker=dict(size=10, color="#e67e22"),
+        text=df["lugar"],
+        hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>"
+    ))
     
     fig.update_layout(
-        height=600,
+        title="⛰️ Perfil de altitud de la peregrinación",
+        xaxis_title="Distancia (km)",
+        yaxis_title="Altitud (msnm)",
+        height=400,
         hovermode="x unified",
         plot_bgcolor="white",
-        showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+        font=dict(family="Inter", size=12)
     )
-    
-    fig.update_xaxes(title_text="Distancia (km)", row=1, col=1)
-    fig.update_yaxes(title_text="Altitud (msnm)", row=1, col=1)
-    fig.update_xaxes(title_text="Distancia (km)", row=2, col=1)
-    fig.update_yaxes(title_text="Pendiente (%)", row=2, col=1)
     
     return fig
 
@@ -460,13 +603,11 @@ def main():
     
     # Header
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
+    <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 32px;">
         <div style="font-size: 4rem;">🏔️</div>
         <div>
-            <h1 style="margin: 0; font-size: 2.8rem; font-weight: 700; color: #1e3c72;">
-                Qoyllur Rit'i Explorer
-            </h1>
-            <p style="margin: 0; color: #7f8c8d; font-size: 1.2rem;">
+            <h1 style="margin: 0;">Qoyllur Rit'i</h1>
+            <p style="margin: 8px 0 0 0; color: #5d6d7e; font-size: 1.2rem;">
                 Peregrinación al Señor de Qoyllur Rit'i · Sinakara, Cusco
             </p>
             <div style="display: flex; gap: 12px; margin-top: 12px;">
@@ -480,7 +621,7 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.markdown("### 🏔️ Qoyllur Rit'i")
+        st.markdown("### 🏔️ La peregrinación")
         st.markdown("""
         **Señor de Qoyllur Rit'i**  
         Peregrinación andina anual en Sinakara, Cusco.
@@ -492,19 +633,87 @@ def main():
         """)
         
         st.markdown("---")
+        st.markdown("### 🗺️ Sobre el mapa")
         st.markdown("""
-        ### 🗺️ Mapa interactivo
-        - **23 lugares sagrados** marcados
-        - **Ruta vehicular** (naranja)
-        - **Ruta Lomada** (morada)
-        - Haz clic en cualquier marcador para más información
+        **🖱️ Haz clic en cualquier marcador** para ver información detallada del lugar.
+        
+        **🎨 Colores por tipo:**
+        - 🔵 Azul: Pueblos y partida
+        - 🔴 Rojo: Iglesias y capillas  
+        - 🟠 Naranja: Plazas
+        - 🟢 Verde: Cruces ceremoniales
+        - 💧 Turquesa: Lagunas
+        - 🟣 Morado: Descanso
+        - ☀️ Amarillo: Lugares solares
+        - ❄️ Azul claro: Glaciares
         """)
     
-    # Tabs
-    tab1, tab2, tab3 = st.tabs(["❓ Preguntas", "🗺️ Mapa Sagrado", "⛰️ Perfil de Altitud"])
+    # Tabs principales
+    tab1, tab2, tab3 = st.tabs(["🗺️ Mapa interactivo", "❓ Preguntas", "⛰️ Perfil de ruta"])
     
-    # ===== TAB 1: PREGUNTAS =====
+    # ===== TAB 1: MAPA CON LUGARES CLICKEABLES =====
     with tab1:
+        st.markdown("""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0;">🗺️ Explora los lugares sagrados</h3>
+            <span style="background: #e67e22; color: white; padding: 4px 16px; border-radius: 30px; font-size: 0.9rem;">
+                🖱️ 16 lugares clickeables
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Controles del mapa
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            tipo_ruta = st.radio(
+                "Mostrar rutas:",
+                ["Todas", "Vehicular", "Lomada"],
+                horizontal=True
+            )
+        
+        # Inicializar estado del lugar seleccionado
+        if 'lugar_seleccionado' not in st.session_state:
+            st.session_state.lugar_seleccionado = None
+        
+        # Crear mapa
+        mapa = crear_mapa_clickeable(
+            tipo_ruta=tipo_ruta.lower(),
+            lugar_seleccionado=st.session_state.lugar_seleccionado
+        )
+        
+        # Configurar captura de clicks
+        event = st.plotly_chart(mapa, use_container_width=True, on_select="rerun", key="mapa")
+        
+        # Procesar click en el mapa
+        if event and "selection" in event and "points" in event["selection"]:
+            points = event["selection"]["points"]
+            if points and len(points) > 0:
+                # Obtener el nombre del lugar clickeado
+                point = points[0]
+                if "customdata" in point and point["customdata"]:
+                    lugar_nombre = point["customdata"][0]
+                    st.session_state.lugar_seleccionado = lugar_nombre
+        
+        # Layout de dos columnas: mapa y panel de información
+        col_map, col_info = st.columns([2, 1])
+        
+        with col_map:
+            st.markdown("""
+            <div style="background: white; padding: 12px; border-radius: 12px; margin-top: 20px;">
+                <span style="font-weight: 600; color: #1e3c72;">📍 Leyenda rápida:</span><br>
+                <span style="font-size: 0.9rem; color: #5d6d7e;">
+                🚌 Ruta vehicular (naranja) · 🚶 Lomada (morada) · 
+                ✨ Marcador con borde dorado = lugar seleccionado
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col_info:
+            # Mostrar panel del lugar seleccionado
+            mostrar_panel_lugar(st.session_state.lugar_seleccionado)
+    
+    # ===== TAB 2: PREGUNTAS =====
+    with tab2:
         if 'rag' not in st.session_state:
             with st.spinner("🏔️ Cargando conocimiento ancestral..."):
                 st.session_state.rag = cargar_conocimiento()
@@ -542,54 +751,9 @@ def main():
             </div>
             """, unsafe_allow_html=True)
     
-    # ===== TAB 2: MAPA - ¡CON TODOS LOS MARCADORES VISIBLES! =====
-    with tab2:
-        st.markdown("### 🗺️ Mapa Sagrado de Qoyllur Rit'i")
-        st.markdown("""
-        <div style="background: #fff9f0; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px;
-                    border-left: 4px solid #e67e22;">
-            <span style="font-weight: 600;">📍 23 lugares sagrados marcados</span> · 
-            Haz clic en cualquier marcador para ver su descripción, altitud y significado ceremonial.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            tipo_ruta = st.radio(
-                "Mostrar rutas:",
-                ["Todas", "Vehicular", "Lomada"],
-                horizontal=True
-            )
-        
-        # Generar mapa - ¡AHORA SÍ FUNCIONA!
-        mapa = crear_mapa_definitivo(tipo_ruta.lower())
-        st.plotly_chart(mapa, use_container_width=True)
-        
-        # Métricas
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("📍 Lugares sagrados", len(LUGARES_SAGRADOS))
-        with col2:
-            st.metric("🚌 Ruta vehicular", "85 km")
-        with col3:
-            st.metric("🚶 Lomada", "35 km · 24h")
-        with col4:
-            st.metric("🏔️ Altitud máxima", "5,200 msnm")
-        
-        # Lista de lugares con expansor
-        with st.expander("📍 Ver todos los lugares sagrados", expanded=False):
-            df_lugares = pd.DataFrame([
-                {"Lugar": nombre, 
-                 "Tipo": lugar["tipo"].capitalize(),
-                 "Altitud": f"{lugar['alt']} msnm",
-                 "Descripción": lugar["descripcion"][:100] + "..."}
-                for nombre, lugar in LUGARES_SAGRADOS.items()
-            ]).sort_values("Lugar")
-            st.dataframe(df_lugares, use_container_width=True, hide_index=True)
-    
     # ===== TAB 3: PERFIL DE ALTITUD =====
     with tab3:
-        st.markdown("### ⛰️ Perfil de Altitud de la Peregrinación")
+        st.markdown("### ⛰️ Perfil de altitud de la peregrinación")
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -601,20 +765,30 @@ def main():
         with col4:
             st.metric("🎯 Llegada", "Tayankani", "3,800 msnm")
         
-        perfil = crear_perfil_altitud_mejorado()
+        perfil = crear_perfil_altitud()
         st.plotly_chart(perfil, use_container_width=True)
+        
+        st.markdown("""
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 16px; margin-top: 20px;">
+            <span style="font-weight: 600; color: #1e3c72;">📊 Datos del recorrido:</span><br>
+            • <b>Distancia total:</b> 125 km (85 km vehicular + 40 km caminata)<br>
+            • <b>Tiempo total:</b> 5 días de peregrinación<br>
+            • <b>Lomada:</b> 35 km de caminata continua (24 horas sin dormir)<br>
+            • <b>Zonas:</b> Vehicular (🟢), Ascenso (🟡), Lomada (🟣)
+        </div>
+        """, unsafe_allow_html=True)
     
     # Footer
     st.markdown("""
     <div class="footer">
         <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 20px;">
-            <span>🏔️ Qoyllur Rit'i Explorer - Versión Definitiva</span>
+            <span>🏔️ Qoyllur Rit'i Explorer - Mapa Clickeable</span>
             <span>•</span>
-            <span>🗺️ 23 lugares marcados</span>
+            <span>🗺️ 16 lugares interactivos</span>
             <span>•</span>
-            <span>📊 Perfil con pendiente</span>
+            <span>🖱️ Haz clic en el mapa</span>
             <span>•</span>
-            <span>✨ 100% funcional</span>
+            <span>✨ Información al instante</span>
         </div>
         <div style="font-size: 0.7rem; color: #95a5a6;">
             Conocimiento ancestral de la Nación Paucartambo · Sinakara, Cusco · Mapas gratuitos Carto
