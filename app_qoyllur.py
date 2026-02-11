@@ -277,11 +277,11 @@ def asignar_icono(nombre):
         return "📍"
 
 # ============================================================================
-# MAPA - SOLO CON LUGARES DEL TTL - VERSIÓN CON PUNTOS VISIBLES
+# MAPA - SOLO CON LUGARES DEL TTL - VERSIÓN SIN ERRORES
 # ============================================================================
 def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
     """
-    Mapa con lugares EXCLUSIVAMENTE del TTL - PUNTOS VISIBLES
+    Mapa con lugares EXCLUSIVAMENTE del TTL - SIN marker.line
     """
     
     # Estilos de mapa
@@ -325,20 +325,17 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
                 hoverinfo="skip"
             ))
     
-    # ===== AGREGAR LUGARES - CON PUNTOS GRANDES Y OSCUROS =====
+    # ===== AGREGAR LUGARES - SIN marker.line =====
     for nombre, lugar in LUGARES_TTL.items():
-        # Color FIJO y OSCURO para que se vean
-        color = "#c0392b"  # Rojo oscuro - VISIBLE
-        
-        # Tamaño GRANDE
+        # Color ROJO OSCURO - visible
+        color = "#c0392b"
         tamanio = 14
         
-        # Borde blanco para destacar
+        # SIN marker.line - SOLO size y color
         marker_dict = {
             "size": tamanio,
             "color": color,
-            "symbol": "marker",
-            "line": {"width": 1, "color": "white"}
+            "symbol": "marker"
         }
         
         icono = "📍"
