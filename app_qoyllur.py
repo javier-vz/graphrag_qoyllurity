@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-🏔️ Qoyllur Rit'i Explorer - VERSIÓN MEJORADA
+🏔️ Qoyllur Rit'i Explorer - VERSIÓN MEJORADA CON RUTA ORDENADA
 ✅ Extracción completa de datos del TTL
 ✅ Mapa Folium con marcadores informativos
-✅ Popups con toda la información disponible
+✅ Ruta cronológica ordenada por marcos temporales y eventos
 """
 
 import streamlit as st
@@ -78,32 +78,33 @@ TOP_10_PREGUNTAS = [
 ]
 
 # ============================================================================
-# FUNCIÓN MEJORADA PARA CARGAR LUGARES DEL TTL
+# FUNCIÓN PARA CARGAR DATOS COMPLETOS DEL TTL
 # ============================================================================
 @st.cache_resource
-def cargar_lugares_desde_ttl():
+def cargar_datos_ttl():
     """
-    Extrae lugares del TTL con TODA su información:
-    - Coordenadas (geo:lat, geo:long)
-    - Nombre (rdfs:label)
-    - Descripción (rdfs:comment)
-    - Tipo de entidad (rdf:type)
+    Extrae:
+    1. Lugares con coordenadas
+    2. Eventos ordenados por marco temporal y orden de evento
+    3. Relaciones entre eventos y lugares
     """
-    ttl_path = "qoyllurity.ttl"
+    ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
     if not Path(ttl_path).exists():
         st.error(f"❌ No se encontró el archivo TTL en: {ttl_path}")
-        return {}
+        return {}, [], {}
     
     g = Graph()
     try:
         g.parse(ttl_path, format='turtle')
     except Exception as e:
         st.error(f"❌ Error al parsear TTL: {e}")
-        return {}
+        return {}, [], {}
     
     lugares = {}
+    eventos = []
+    marcos_temporales = {}
     
-    # Iterar sobre todos los sujetos del grafo
+    # ===== PASO 1: Extraer lugares con coordenadas =====
     for s in g.subjects():
         lat = None
         lon = None
@@ -111,7 +112,7 @@ def cargar_lugares_desde_ttl():
         descripcion = None
         tipos = []
         
-        # Extraer coordenadas
+        # Coordenadas
         for lat_val in g.objects(s, GEO.lat):
             try:
                 lat = float(lat_val)
@@ -124,51 +125,149 @@ def cargar_lugares_desde_ttl():
             except:
                 pass
         
-        # Solo procesar si tiene coordenadas
         if lat and lon:
-            # Extraer nombre (label en español)
+            # Nombre
             for label in g.objects(s, RDFS.label):
                 if isinstance(label, Literal):
                     if label.language == 'es' or not label.language:
                         nombre = str(label)
                         break
             
-            # Si no hay label, usar el URI
             if not nombre:
                 nombre = str(s).split('#')[-1].replace('_', ' ')
             
-            # Extraer descripción (comment en español)
+            # Descripción
             for comment in g.objects(s, RDFS.comment):
                 if isinstance(comment, Literal):
                     if comment.language == 'es' or not comment.language:
                         descripcion = str(comment)
                         break
             
-            # Extraer tipos
+            # Tipos
             for tipo in g.objects(s, RDF.type):
                 tipo_str = str(tipo).split('#')[-1]
                 if tipo_str not in ['NamedIndividual']:
                     tipos.append(tipo_str)
             
-            # Guardar lugar
-            lugares[nombre] = {
+            uri = str(s).split('#')[-1] if '#' in str(s) else str(s)
+            
+            lugares[uri] = {
+                "uri": uri,
                 "lat": lat,
                 "lon": lon,
                 "nombre": nombre,
                 "descripcion": descripcion or "Sin descripción disponible",
-                "tipos": tipos,
-                "uri": str(s)
+                "tipos": tipos
             }
     
-    return lugares
+    # ===== PASO 2: Extraer marcos temporales (días) =====
+    for s, p, o in g.triples((None, FESTIVIDAD.defineMarcoTemporal, None)):
+        marco_uri = str(s).split('#')[-1] if '#' in str(s) else str(s)
+        
+        # Obtener orden del marco
+        orden = None
+        for orden_val in g.objects(s, FESTIVIDAD.tieneOrden):
+            try:
+                orden = int(orden_val)
+            except:
+                pass
+        
+        # Obtener nombre del marco
+        nombre_marco = None
+        for label in g.objects(s, RDFS.label):
+            if isinstance(label, Literal):
+                nombre_marco = str(label)
+                break
+        
+        if not nombre_marco:
+            nombre_marco = marco_uri
+        
+        if marco_uri not in marcos_temporales:
+            marcos_temporales[marco_uri] = {
+                "uri": marco_uri,
+                "nombre": nombre_marco,
+                "orden": orden or 999,
+                "eventos": []
+            }
+    
+    # ===== PASO 3: Extraer eventos y asociarlos a marcos temporales =====
+    for s in g.subjects(RDF.type, FESTIVIDAD.EventoRitual):
+        evento_uri = str(s).split('#')[-1] if '#' in str(s) else str(s)
+        
+        # Nombre del evento
+        nombre_evento = None
+        for label in g.objects(s, RDFS.label):
+            if isinstance(label, Literal):
+                nombre_evento = str(label)
+                break
+        
+        if not nombre_evento:
+            nombre_evento = evento_uri
+        
+        # Descripción
+        descripcion_evento = None
+        for comment in g.objects(s, RDFS.comment):
+            if isinstance(comment, Literal):
+                descripcion_evento = str(comment)
+                break
+        
+        # Orden del evento
+        orden_evento = None
+        for orden_val in g.objects(s, FESTIVIDAD.tieneOrdenEvento):
+            try:
+                orden_evento = int(orden_val)
+            except:
+                pass
+        
+        # Lugar donde ocurre
+        lugares_evento = []
+        for lugar_obj in g.objects(s, FESTIVIDAD.ocurreEnLugar):
+            lugar_uri = str(lugar_obj).split('#')[-1] if '#' in str(lugar_obj) else str(lugar_obj)
+            if lugar_uri in lugares:
+                lugares_evento.append(lugar_uri)
+        
+        # Marco temporal al que pertenece
+        marco_del_evento = None
+        for marco_s in g.subjects(FESTIVIDAD.defineMarcoTemporal, s):
+            marco_del_evento = str(marco_s).split('#')[-1] if '#' in str(marco_s) else str(marco_s)
+            break
+        
+        evento_data = {
+            "uri": evento_uri,
+            "nombre": nombre_evento,
+            "descripcion": descripcion_evento or "Sin descripción",
+            "orden_evento": orden_evento or 999,
+            "lugares": lugares_evento,
+            "marco": marco_del_evento
+        }
+        
+        eventos.append(evento_data)
+        
+        # Agregar a su marco temporal
+        if marco_del_evento and marco_del_evento in marcos_temporales:
+            marcos_temporales[marco_del_evento]["eventos"].append(evento_data)
+    
+    # ===== PASO 4: Ordenar eventos por marco temporal y orden de evento =====
+    # Ordenar marcos temporales por orden
+    marcos_ordenados = sorted(marcos_temporales.values(), key=lambda x: x["orden"])
+    
+    # Ordenar eventos dentro de cada marco
+    for marco in marcos_ordenados:
+        marco["eventos"].sort(key=lambda x: x["orden_evento"])
+    
+    # Crear lista plana de eventos ordenados
+    eventos_ordenados = []
+    for marco in marcos_ordenados:
+        for evento in marco["eventos"]:
+            eventos_ordenados.append(evento)
+    
+    return lugares, eventos_ordenados, marcos_temporales
 
 # ============================================================================
 # FUNCIÓN PARA DETERMINAR COLOR E ICONO
 # ============================================================================
 def obtener_color_icono(lugar):
-    """
-    Determina el color e icono según el tipo de lugar
-    """
+    """Determina el color e icono según el tipo de lugar"""
     nombre = lugar["nombre"].lower()
     tipos = [t.lower() for t in lugar["tipos"]]
     
@@ -199,11 +298,13 @@ def obtener_color_icono(lugar):
         return "gray", "📍", "Lugar"
 
 # ============================================================================
-# FUNCIÓN PARA CREAR MAPA CON FOLIUM
+# FUNCIÓN PARA CREAR MAPA CON FOLIUM Y RUTA ORDENADA
 # ============================================================================
-def crear_mapa_folium(lugares):
+def crear_mapa_folium(lugares, eventos_ordenados, mostrar_ruta=True):
     """
-    Crea un mapa Folium con todos los lugares del TTL
+    Crea un mapa Folium con:
+    1. Marcadores de lugares
+    2. Ruta cronológica según eventos ordenados
     """
     # Crear mapa centrado en la región
     mapa = folium.Map(
@@ -213,11 +314,11 @@ def crear_mapa_folium(lugares):
         tiles='OpenStreetMap'
     )
     
-    # Agregar marcadores
-    for nombre, lugar in lugares.items():
+    # ===== PASO 1: Agregar marcadores de todos los lugares =====
+    for nombre_key, lugar in lugares.items():
         color, icono, categoria = obtener_color_icono(lugar)
         
-        # Crear popup HTML con información completa
+        # Crear popup HTML
         popup_html = f"""
         <div style="font-family: 'Inter', 'Segoe UI', sans-serif; min-width: 250px; max-width: 350px;">
             <div style="background: linear-gradient(135deg, #1e3c72 0%, #2d5aa0 100%); 
@@ -226,7 +327,7 @@ def crear_mapa_folium(lugares):
                         margin: -10px -10px 10px -10px;
                         border-radius: 4px 4px 0 0;">
                 <h4 style="margin: 0; font-size: 1.1rem;">
-                    {icono} {nombre}
+                    {icono} {lugar['nombre']}
                 </h4>
                 <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 4px;">
                     {categoria}
@@ -241,7 +342,6 @@ def crear_mapa_folium(lugares):
                 </p>
         """
         
-        # Agregar descripción si existe
         if lugar['descripcion'] and lugar['descripcion'] != "Sin descripción disponible":
             popup_html += f"""
                 <p style="margin: 12px 0; color: #34495e; font-size: 0.85rem; line-height: 1.6; 
@@ -251,9 +351,8 @@ def crear_mapa_folium(lugares):
                 </p>
             """
         
-        # Agregar tipos si existen
         if lugar['tipos']:
-            tipos_str = ", ".join(lugar['tipos'][:3])  # Máximo 3 tipos
+            tipos_str = ", ".join(lugar['tipos'][:3])
             popup_html += f"""
                 <p style="margin: 8px 0; color: #7f8c8d; font-size: 0.75rem;">
                     <strong>🏷️ Tipo:</strong> {tipos_str}
@@ -269,26 +368,90 @@ def crear_mapa_folium(lugares):
         folium.Marker(
             location=[lugar["lat"], lugar["lon"]],
             popup=folium.Popup(popup_html, max_width=400),
-            tooltip=f"{icono} {nombre}",
+            tooltip=f"{icono} {lugar['nombre']}",
             icon=folium.Icon(color=color, icon='info-sign', prefix='glyphicon')
         ).add_to(mapa)
+    
+    # ===== PASO 2: Agregar ruta cronológica =====
+    if mostrar_ruta and eventos_ordenados:
+        ruta_coords = []
+        eventos_con_coords = []
+        
+        for i, evento in enumerate(eventos_ordenados):
+            if evento["lugares"]:
+                # Usar el primer lugar del evento
+                lugar_uri = evento["lugares"][0]
+                if lugar_uri in lugares:
+                    lugar = lugares[lugar_uri]
+                    coord = [lugar["lat"], lugar["lon"]]
+                    
+                    # Evitar duplicados consecutivos
+                    if not ruta_coords or ruta_coords[-1] != coord:
+                        ruta_coords.append(coord)
+                        eventos_con_coords.append({
+                            "evento": evento,
+                            "lugar": lugar,
+                            "orden": i + 1
+                        })
+        
+        # Dibujar línea de ruta
+        if len(ruta_coords) > 1:
+            folium.PolyLine(
+                ruta_coords,
+                color='#e67e22',
+                weight=3,
+                opacity=0.7,
+                tooltip="Ruta cronológica de la peregrinación"
+            ).add_to(mapa)
+            
+            # Agregar marcadores numerados en la ruta
+            for i, item in enumerate(eventos_con_coords):
+                evento = item["evento"]
+                lugar = item["lugar"]
+                orden = item["orden"]
+                
+                # Marcador numerado
+                folium.CircleMarker(
+                    location=[lugar["lat"], lugar["lon"]],
+                    radius=8,
+                    color='#e67e22',
+                    fill=True,
+                    fillColor='#fff',
+                    fillOpacity=1,
+                    weight=2,
+                    tooltip=f"#{orden}: {evento['nombre']}"
+                ).add_to(mapa)
+                
+                # Número dentro del círculo
+                folium.Marker(
+                    location=[lugar["lat"], lugar["lon"]],
+                    icon=folium.DivIcon(html=f'''
+                        <div style="
+                            font-size: 10px;
+                            font-weight: bold;
+                            color: #e67e22;
+                            text-align: center;
+                            margin-top: -20px;
+                            margin-left: -3px;
+                        ">{orden}</div>
+                    ''')
+                ).add_to(mapa)
     
     return mapa
 
 # ============================================================================
-# CARGAR MOTOR DE CONOCIMIENTO (SI EXISTE)
+# CARGAR MOTOR DE CONOCIMIENTO
 # ============================================================================
 @st.cache_resource
 def cargar_conocimiento():
     """Carga el motor de conocimiento si existe el archivo"""
     try:
         # Importar el módulo
-        import sys
         sys.path.insert(0, '/mnt/user-data/uploads')
         from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
         
         # Cargar con la ruta correcta
-        ttl_path = "qoyllurity.ttl"
+        ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
         if not Path(ttl_path).exists():
             st.warning(f"⚠️ No se encontró el archivo TTL en: {ttl_path}")
             return None
@@ -357,20 +520,20 @@ def main():
                 Qoyllur Rit'i Explorer
             </h1>
             <p style="margin: 0; color: #7f8c8d; font-size: 1.2rem;">
-                Conocimiento ancestral · Mapas interactivos · Sinakara, Cusco
+                Conocimiento ancestral · Ruta cronológica · Sinakara, Cusco
             </p>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Cargar lugares del TTL
-    lugares = cargar_lugares_desde_ttl()
+    # Cargar datos del TTL
+    lugares, eventos_ordenados, marcos_temporales = cargar_datos_ttl()
     
     if not lugares:
-        st.error("❌ No se pudieron cargar los lugares del archivo TTL")
+        st.error("❌ No se pudieron cargar los datos del archivo TTL")
         st.stop()
     
-    st.success(f"✅ Se cargaron **{len(lugares)}** lugares desde el TTL")
+    st.success(f"✅ Cargados **{len(lugares)}** lugares y **{len(eventos_ordenados)}** eventos ordenados")
     
     # Sidebar
     with st.sidebar:
@@ -379,61 +542,103 @@ def main():
         **Señor de Qoyllur Rit'i**  
         Peregrinación andina anual en Sinakara, Cusco.
         
-        **📍 Lugares en mapa:** {len(lugares)} sitios sagrados  
-        **📅 Fecha:** 58 días después del Miércoles de Ceniza  
-        **⛰️ Altitud máxima:** 5,200 msnm  
-        **👥 Participantes:** Ocho naciones
+        **📍 Lugares:** {len(lugares)} sitios  
+        **📅 Eventos:** {len(eventos_ordenados)} eventos ordenados  
+        **🗓️ Días:** {len(marcos_temporales)} marcos temporales  
+        **⛰️ Altitud máx:** 5,200 msnm  
         """)
         
         st.markdown("---")
+        st.markdown("### 🗺️ Ruta Cronológica")
+        mostrar_ruta = st.checkbox("Mostrar ruta ordenada", value=True)
         st.markdown("""
-        ### 🗺️ Características del Mapa
-        - **Marcadores de colores** según tipo de lugar
-        - **Popups informativos** con descripción completa
-        - **Tooltips** al pasar el mouse
-        - Información extraída del TTL
+        La ruta sigue el orden cronológico de los eventos según:
+        1. **Marco temporal** (días)
+        2. **Orden de evento** (dentro de cada día)
         """)
         
-        # Leyenda de colores
+        st.markdown("---")
         st.markdown("### 🎨 Leyenda")
         st.markdown("""
         - 🔴 Santuarios
         - ❄️ Glaciares
         - 🟢 Cruces
-        - 🟠 Iglesias/Capillas
-        - 🟣 Plazas
+        - 🟠 Iglesias
         - 🔵 Pueblos
         - 💧 Lagunas
-        - 🟤 Descansos
+        - 🟣 Plazas
         """)
     
     # Tabs principales
-    tab1, tab2, tab3, tab4 = st.tabs(["🗺️ Mapa Interactivo", "📊 Estadísticas", "❓ Preguntas", "⛰️ Perfil de Altitud"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🗺️ Mapa Interactivo", 
+        "📅 Cronología de Eventos",
+        "📊 Estadísticas", 
+        "❓ Preguntas", 
+        "⛰️ Perfil"
+    ])
     
     # ===== TAB 1: MAPA =====
     with tab1:
-        st.markdown(f"### 🗺️ Mapa de lugares sagrados ({len(lugares)} puntos)")
+        st.markdown(f"### 🗺️ Mapa de la peregrinación ({len(lugares)} lugares)")
         
         # Crear y mostrar mapa
-        with st.spinner("🗺️ Generando mapa interactivo..."):
-            mapa = crear_mapa_folium(lugares)
+        with st.spinner("🗺️ Generando mapa con ruta cronológica..."):
+            mapa = crear_mapa_folium(lugares, eventos_ordenados, mostrar_ruta)
             st_folium(mapa, width="100%", height=600)
         
         # Métricas
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📍 Total lugares", len(lugares))
+            st.metric("📍 Lugares", len(lugares))
         with col2:
-            santuarios = sum(1 for l in lugares.values() if "santuario" in l["nombre"].lower())
-            st.metric("⛪ Santuarios", santuarios)
+            st.metric("📅 Eventos", len(eventos_ordenados))
         with col3:
-            pueblos = sum(1 for l in lugares.values() if any(p in l["nombre"].lower() for p in ["pueblo", "paucartambo", "ocongate", "ccatcca"]))
-            st.metric("🏘️ Pueblos", pueblos)
+            st.metric("🗓️ Marcos", len(marcos_temporales))
         with col4:
             st.metric("🏔️ Altitud máx", "5,200 msnm")
     
-    # ===== TAB 2: ESTADÍSTICAS =====
+    # ===== TAB 2: CRONOLOGÍA =====
     with tab2:
+        st.markdown("### 📅 Cronología de Eventos")
+        
+        # Ordenar marcos temporales
+        marcos_ordenados = sorted(marcos_temporales.values(), key=lambda x: x["orden"])
+        
+        for marco in marcos_ordenados:
+            with st.expander(f"**{marco['nombre']}** (Día {marco['orden']})", expanded=True):
+                if marco["eventos"]:
+                    for evento in sorted(marco["eventos"], key=lambda x: x["orden_evento"]):
+                        st.markdown(f"""
+                        <div class="info-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <div style="color: #e67e22; font-weight: bold; font-size: 0.9rem;">
+                                        #{evento['orden_evento']} - {evento['nombre']}
+                                    </div>
+                                    <div style="color: #7f8c8d; font-size: 0.85rem; margin-top: 8px;">
+                                        {evento['descripcion']}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Mostrar lugares del evento
+                        if evento["lugares"]:
+                            lugares_nombres = []
+                            for lugar_uri in evento["lugares"]:
+                                if lugar_uri in lugares:
+                                    lugares_nombres.append(f"📍 {lugares[lugar_uri]['nombre']}")
+                            if lugares_nombres:
+                                st.markdown(f"**Lugares:** {', '.join(lugares_nombres)}")
+                        
+                        st.markdown("---")
+                else:
+                    st.info("Sin eventos registrados para este marco temporal")
+    
+    # ===== TAB 3: ESTADÍSTICAS =====
+    with tab3:
         st.markdown("### 📊 Estadísticas de Lugares")
         
         # Crear DataFrame
@@ -485,8 +690,8 @@ def main():
         )
         st.plotly_chart(fig_cat, use_container_width=True)
     
-    # ===== TAB 3: PREGUNTAS =====
-    with tab3:
+    # ===== TAB 4: PREGUNTAS =====
+    with tab4:
         motor = cargar_conocimiento()
         
         if motor:
@@ -527,8 +732,8 @@ def main():
         else:
             st.info("ℹ️ Sistema de preguntas no disponible. Verifica que esté instalado el motor de conocimiento.")
     
-    # ===== TAB 4: PERFIL =====
-    with tab4:
+    # ===== TAB 5: PERFIL =====
+    with tab5:
         st.markdown("### ⛰️ Perfil de Altitud del Recorrido")
         
         col1, col2, col3, col4 = st.columns(4)
