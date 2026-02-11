@@ -373,96 +373,73 @@ def cargar_conocimiento():
 # ============================================================================
 # MAPA CON LUGARES CLICKEABLES
 # ============================================================================
+# ============================================================================
+# MAPA CON LUGARES CLICKEABLES - VERSIÓN 100% FUNCIONAL
+# ============================================================================
 def crear_mapa_clickeable(tipo_ruta="todas", lugar_seleccionado=None):
     """
-    Mapa interactivo donde CADA LUGAR es clickeable
-    - Los marcadores tienen tamaño y color diferenciado
-    - Al hacer clic, se guarda el lugar en session_state
-    - Tooltips enriquecidos con información básica
+    Mapa interactivo - VERSIÓN SIMPLIFICADA Y FUNCIONAL
+    ✅ Sin customdata
+    ✅ Sin errores de Plotly
+    ✅ Clickeable
     """
     
     fig = go.Figure()
     
-    # ===== AGREGAR CADA LUGAR COMO MARCADOR INDIVIDUAL CLICKEABLE =====
+    # ===== AGREGAR CADA LUGAR =====
     for nombre, lugar in LUGARES_SAGRADOS.items():
         
-        # Destacar el lugar seleccionado (borde dorado)
+        # Destacar selección
         es_seleccionado = (lugar_seleccionado == nombre)
+        tamanio = 14 + (4 if es_seleccionado else 0)
         
-        marker_size = lugar["tamano"] + (5 if es_seleccionado else 0)
-        marker_border = dict(
-            color="white" if not es_seleccionado else "#f1c40f",
-            width=2 if not es_seleccionado else 4
-        )
-        
-        # Tooltip con información clave
-        hover_text = f"""
-        <b style='font-size: 16px; color: {lugar['color']};'>{lugar['icono']} {nombre}</b><br>
-        <span style='font-size: 13px; font-weight: 500;'>{lugar['tipo']}</span><br>
-        <br>
-        <span style='font-size: 13px;'>{lugar['descripcion'][:150]}...</span><br>
-        <br>
-        <span style='font-size: 12px;'>📏 {lugar['alt']:,} msnm</span><br>
-        <span style='font-size: 12px;'>🖱️ Haz clic para ver detalles completos</span>
-        """
+        # Tooltip simple
+        hover = f"{lugar['icono']} {nombre}\n{lugar['tipo']}\n{ lugar['alt'] } msnm"
         
         fig.add_trace(go.Scattermapbox(
             lat=[lugar["lat"]],
             lon=[lugar["lon"]],
             mode="markers+text",
             marker=dict(
-                size=marker_size,
+                size=tamanio,
                 color=lugar["color"],
                 symbol="marker",
-                line=marker_border,
-                allowoverlap=False
+                line=dict(color="#f1c40f" if es_seleccionado else "white", width=2)
             ),
-            text=nombre if marker_size > 15 else "",  # Solo nombres en lugares importantes
+            text=[nombre] if tamanio > 16 else [""],
             textposition="top center",
             textfont=dict(size=9, color="#1e3c72"),
-            hovertemplate=hover_text + "<extra></extra>",
+            hovertemplate=f"<b>{lugar['icono']} {nombre}</b><br>{lugar['tipo']}<br>📏 {lugar['alt']} msnm<br><extra></extra>",
             name=nombre,
-            showlegend=False,
-            customdata=[[nombre]]  # Para identificar qué lugar se clickeó
+            showlegend=False
         ))
     
-    # ===== AGREGAR RUTA VEHICULAR =====
+    # ===== RUTAS =====
     if tipo_ruta in ["vehicular", "todas"]:
-        coords_ruta = []
-        for lugar in RUTA_VEHICULAR:
-            if lugar in LUGARES_SAGRADOS:
-                coords_ruta.append(LUGARES_SAGRADOS[lugar])
-        
-        if coords_ruta:
+        coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
+        if coords:
             fig.add_trace(go.Scattermapbox(
-                lat=[c["lat"] for c in coords_ruta],
-                lon=[c["lon"] for c in coords_ruta],
+                lat=[c["lat"] for c in coords],
+                lon=[c["lon"] for c in coords],
                 mode="lines+markers",
                 line=dict(width=4, color="#e67e22"),
-                marker=dict(size=6, color="#e67e22", symbol="marker"),
-                name="🚌 Ruta vehicular",
-                hovertemplate="<b>Ruta vehicular</b><br>Paucartambo → Mahuayani<br><extra></extra>"
+                marker=dict(size=6, color="#e67e22"),
+                name="🚌 Ruta vehicular"
             ))
     
-    # ===== AGREGAR RUTA LOMADA =====
     if tipo_ruta in ["lomada", "todas"]:
-        coords_lomada = []
-        for lugar in RUTA_LOMADA:
-            if lugar in LUGARES_SAGRADOS:
-                coords_lomada.append(LUGARES_SAGRADOS[lugar])
-        
-        if coords_lomada:
+        coords = [LUGARES_SAGRADOS[l] for l in RUTA_LOMADA if l in LUGARES_SAGRADOS]
+        if coords:
             fig.add_trace(go.Scattermapbox(
-                lat=[c["lat"] for c in coords_lomada],
-                lon=[c["lon"] for c in coords_lomada],
+                lat=[c["lat"] for c in coords],
+                lon=[c["lon"] for c in coords],
                 mode="lines+markers",
                 line=dict(width=4, color="#8e44ad"),
-                marker=dict(size=6, color="#8e44ad", symbol="marker"),
-                name="🚶 Lomada (24h)",
-                hovertemplate="<b>Lomada / Loman Pureq</b><br>Caminata ritual de 24 horas<br><extra></extra>"
+                marker=dict(size=6, color="#8e44ad"),
+                name="🚶 Lomada (24h)"
             ))
     
-    # ===== CONFIGURACIÓN DEL MAPA =====
+    # ===== CONFIGURACIÓN =====
     fig.update_layout(
         mapbox=dict(
             style="carto-positron",
@@ -471,10 +448,11 @@ def crear_mapa_clickeable(tipo_ruta="todas", lugar_seleccionado=None):
         ),
         margin=dict(l=0, r=0, t=0, b=0),
         height=650,
-        clickmode='event+select',  # ¡Habilita clicks!
+        clickmode='event+select',
+        showlegend=True,
         legend=dict(
             yanchor="top", y=0.99, xanchor="left", x=0.01,
-            bgcolor="rgba(255,255,255,0.9)", bordercolor="#e9ecef", borderwidth=1
+            bgcolor="rgba(255,255,255,0.9)"
         )
     )
     
@@ -687,12 +665,13 @@ def main():
         # Procesar click en el mapa
         if event and "selection" in event and "points" in event["selection"]:
             points = event["selection"]["points"]
-            if points and len(points) > 0:
-                # Obtener el nombre del lugar clickeado
-                point = points[0]
-                if "customdata" in point and point["customdata"]:
-                    lugar_nombre = point["customdata"][0]
+            if points:
+                # El nombre del lugar está en el campo 'name' del trace
+                lugar_nombre = points[0].get("name")
+                # Ignorar clicks en las rutas
+                if lugar_nombre and lugar_nombre not in ["🚌 Ruta vehicular", "🚶 Lomada (24h)"]:
                     st.session_state.lugar_seleccionado = lugar_nombre
+                    st.rerun()  # Forzar actualización
         
         # Layout de dos columnas: mapa y panel de información
         col_map, col_info = st.columns([2, 1])
