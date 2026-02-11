@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-📱 Qoyllur Rit'i Explorer - VERSIÓN 2.0 PREMIUM
-✅ LUGARES EXTRAÍDOS DIRECTAMENTE DEL TTL - ¡YA FUNCIONAN!
+📱 Qoyllur Rit'i Explorer - VERSIÓN FINAL
+✅ LUGARES EXTRAÍDOS DIRECTAMENTE DEL TTL - ÚNICA FUENTE
+✅ SIN diccionarios manuales
 ✅ Mapas con iconos personalizados
 ✅ Perfil de altitud con zonas y pendiente
-✅ Tooltips detallados
-✅ Estilos de mapa (Calle, Outdoor, Oscuro)
+✅ Tooltips detallados con descripciones del TTL
 ✅ 100% funcional en Python 3.13
 """
 
@@ -20,6 +20,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from rdflib import Graph, URIRef, Literal
 from rdflib.namespace import RDF, RDFS
+import hashlib
 
 # ============================================================================
 # IMPORTAR NUESTRO MOTOR DE CONOCIMIENTO
@@ -30,14 +31,14 @@ from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
 # CONFIGURACIÓN DE LA PÁGINA
 # ============================================================================
 st.set_page_config(
-    page_title="Qoyllur Rit'i Explorer - Premium",
+    page_title="Qoyllur Rit'i Explorer",
     page_icon="🏔️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ============================================================================
-# CSS PERSONALIZADO - ESTILO ANDINO PREMIUM
+# CSS PERSONALIZADO - ESTILO ANDINO
 # ============================================================================
 st.markdown("""
 <style>
@@ -65,8 +66,6 @@ st.markdown("""
         padding: 12px 28px;
         font-weight: 600;
         transition: all 0.3s ease;
-        border: 1px solid rgba(255,255,255,0.1);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     
     .stButton button:hover {
@@ -97,7 +96,6 @@ st.markdown("""
         display: inline-block;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        box-shadow: 0 2px 4px rgba(230,126,34,0.2);
     }
     
     .footer {
@@ -112,11 +110,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# EXTRAER LUGARES DIRECTAMENTE DEL TTL - VERSIÓN CORREGIDA
+# EXTRAER LUGARES DIRECTAMENTE DEL TTL - ÚNICA FUENTE DE VERDAD
 # ============================================================================
 @st.cache_resource
 def cargar_lugares_desde_ttl():
-    """Extrae TODOS los lugares con coordenadas del TTL"""
+    """Extrae TODOS los lugares con coordenadas del TTL - SIN DICT MANUAL"""
     ttl_path = "qoyllurity.ttl"
     posibles = ["qoyllurity.ttl", "../qoyllurity.ttl", "./data/qoyllurity.ttl"]
     for p in posibles:
@@ -129,53 +127,76 @@ def cargar_lugares_desde_ttl():
     
     lugares = {}
     
-    # Buscar TODOS los individuos que tienen geo:lat y geo:long
     for s in g.subjects():
         lat = None
         lon = None
         nombre = None
         alt = 0
+        descripcion = ""
         
-        # Obtener nombre/label
-        for o in g.objects(s, RDFS.label):
-            if isinstance(o, Literal) and o.language == 'es':
-                nombre = str(o)
-                break
-        
-        if not nombre:
-            nombre = str(s).split('#')[-1]
-        
-        # Buscar lat/long
+        # Buscar lat/long (Annotation Properties)
         for p, o in g.predicate_objects(s):
-            if 'lat' in str(p).lower():
+            p_str = str(p)
+            if 'geo:lat' in p_str or '/lat' in p_str or '#lat' in p_str:
                 try:
                     lat = float(o)
                 except:
                     pass
-            if 'long' in str(p).lower() or 'lon' in str(p).lower():
+            if 'geo:long' in p_str or '/long' in p_str or '#long' in p_str or '/lon' in p_str:
                 try:
                     lon = float(o)
                 except:
                     pass
         
+        # Si tiene coordenadas, guardar
         if lat and lon:
+            # Buscar nombre (label)
+            for o in g.objects(s, RDFS.label):
+                if isinstance(o, Literal) and o.language == 'es':
+                    nombre = str(o)
+                    break
+            
+            if not nombre:
+                nombre = str(s).split('#')[-1]
+            
+            # Buscar altitud si existe
+            for p, o in g.predicate_objects(s):
+                if 'alt' in str(p).lower():
+                    try:
+                        alt = float(o)
+                    except:
+                        pass
+            
+            # Buscar descripción
+            for p, o in g.predicate_objects(s):
+                p_str = str(p)
+                if 'tieneDescripcion' in p_str or 'comment' in p_str:
+                    if isinstance(o, Literal):
+                        if hasattr(o, 'language') and o.language == 'es':
+                            descripcion = str(o)
+                            break
+                        else:
+                            descripcion = str(o)
+            
             lugares[nombre] = {
                 "lat": lat,
                 "lon": lon,
                 "alt": alt,
                 "nombre": nombre,
-                "id": str(s).split('#')[-1]
+                "id": str(s).split('#')[-1],
+                "descripcion": descripcion[:150] + "..." if len(descripcion) > 150 else descripcion,
+                "tipo": "Lugar sagrado"
             }
     
     return lugares
 
 # ============================================================================
-# CARGAR LUGARES AL INICIAR
+# CARGAR LUGARES - ESTA ES LA ÚNICA FUENTE DE DATOS
 # ============================================================================
 LUGARES_TTL = cargar_lugares_desde_ttl()
 
 # ============================================================================
-# RUTAS DE PEREGRINACIÓN
+# RUTAS DE PEREGRINACIÓN (solo nombres, las coordenadas vienen del TTL)
 # ============================================================================
 RUTA_VEHICULAR = ["Paucartambo", "Huancarani", "Ccatcca", "Ocongate", "Mahuayani"]
 RUTA_LOMADA = ["SantuarioQoylluriti", "MachuCruz", "Yanaqocha", "Yanaqancha", "QespiCruz", "IntiLloksimuy", "Tayancani"]
@@ -210,84 +231,58 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15(ttl_path)
 
 # ============================================================================
-# MAPA CON LUGARES DEL TTL
+# FUNCIÓN PARA GENERAR COLORES CONSISTENTES
+# ============================================================================
+def generar_color(nombre):
+    """Genera un color único basado en el nombre"""
+    hash_obj = hashlib.md5(nombre.encode())
+    hue = int(hash_obj.hexdigest()[:6], 16) % 360
+    return f"hsl({hue}, 70%, 50%)"
+
+# ============================================================================
+# FUNCIÓN PARA ASIGNAR ICONOS
+# ============================================================================
+def asignar_icono(nombre):
+    """Asigna un icono basado en el nombre del lugar"""
+    nombre_lower = nombre.lower()
+    if "glaciar" in nombre_lower or "colque" in nombre_lower or "punku" in nombre_lower:
+        return "❄️"
+    elif "santuario" in nombre_lower:
+        return "🏔️"
+    elif "cruz" in nombre_lower:
+        return "✝️"
+    elif "iglesia" in nombre_lower:
+        return "⛪"
+    elif "plaza" in nombre_lower:
+        return "🎭"
+    elif "laguna" in nombre_lower or "yanaqocha" in nombre_lower:
+        return "💧"
+    elif "cementerio" in nombre_lower:
+        return "🕊️"
+    elif "casa" in nombre_lower or "prioste" in nombre_lower:
+        return "🏠"
+    elif "capilla" in nombre_lower:
+        return "⛪"
+    elif "gruta" in nombre_lower:
+        return "🕯️"
+    elif "inicio" in nombre_lower or "mahuayani" in nombre_lower:
+        return "🚩"
+    elif "descanso" in nombre_lower or "yanaqancha" in nombre_lower:
+        return "😴"
+    elif "rio" in nombre_lower or "wayqo" in nombre_lower:
+        return "💦"
+    elif "solar" in nombre_lower or "inti" in nombre_lower:
+        return "☀️"
+    else:
+        return "📍"
+
+# ============================================================================
+# MAPA - SOLO CON LUGARES DEL TTL
 # ============================================================================
 def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
     """
-    Mapa con lugares EXTRAÍDOS DIRECTAMENTE DEL TTL
+    Mapa con lugares EXCLUSIVAMENTE del TTL
     """
-    
-    # Colores por lugar (manteniendo la estética)
-    COLORES = {
-        "Paucartambo": "#1e3c72",
-        "Huancarani": "#1e3c72",
-        "Ccatcca": "#1e3c72",
-        "Ocongate": "#1e3c72",
-        "Tayancani": "#1e3c72",
-        "SantuarioQoylluriti": "#f39c12",
-        "ColquePunku": "#3498db",
-        "MachuCruz": "#27ae60",
-        "Yanaqocha": "#16a085",
-        "Yanaqancha": "#8e44ad",
-        "QespiCruz": "#27ae60",
-        "IntiLloksimuy": "#f1c40f",
-        "Caicay": "#1e3c72",
-        "Challabamba": "#1e3c72",
-        "Colquepata": "#1e3c72",
-        "Ccapi": "#1e3c72",
-        "Ccarhuayo": "#1e3c72",
-        "Mollomarca": "#1e3c72",
-        "Mahuayani": "#2c3e50",
-        "IglesiaPaucartambo": "#c0392b",
-        "CementerioPaucartambo": "#7f8c8d",
-        "PlazaPaucartambo": "#e67e22",
-        "CasaPriosteOcongate": "#d35400",
-        "PlazaOcongate": "#e67e22",
-        "CeldaUkukusPaucartambo": "#8e44ad",
-        "Mamachapata": "#e67e22",
-        "Pachakunapata": "#e67e22",
-        "CapillaTayankani": "#e74c3c",
-        "GrutaTayankani": "#95a5a6",
-        "Escalerachayoq": "#27ae60",
-        "QquchiyocWayqo": "#2980b9",
-        "GrutaYanaqancha": "#95a5a6",
-    }
-    
-    # Iconos por lugar
-    ICONOS = {
-        "Paucartambo": "🏘️",
-        "Huancarani": "🛣️",
-        "Ccatcca": "🍖",
-        "Ocongate": "🏠",
-        "Tayancani": "🏁",
-        "SantuarioQoylluriti": "🏔️",
-        "ColquePunku": "❄️",
-        "MachuCruz": "✝️",
-        "Yanaqocha": "💧",
-        "Yanaqancha": "😴",
-        "QespiCruz": "🎵",
-        "IntiLloksimuy": "☀️",
-        "Caicay": "🏘️",
-        "Challabamba": "🏘️",
-        "Colquepata": "🏘️",
-        "Ccapi": "🏘️",
-        "Ccarhuayo": "🏘️",
-        "Mollomarca": "🏘️",
-        "Mahuayani": "🚩",
-        "IglesiaPaucartambo": "⛪",
-        "CementerioPaucartambo": "🕊️",
-        "PlazaPaucartambo": "🎭",
-        "CasaPriosteOcongate": "🏠",
-        "PlazaOcongate": "🎭",
-        "CeldaUkukusPaucartambo": "🛏️",
-        "Mamachapata": "✨",
-        "Pachakunapata": "🚪",
-        "CapillaTayankani": "⛪",
-        "GrutaTayankani": "🕯️",
-        "Escalerachayoq": "🪨",
-        "QquchiyocWayqo": "💦",
-        "GrutaYanaqancha": "🕳️",
-    }
     
     # Estilos de mapa
     ESTILOS_MAPA = {
@@ -299,7 +294,7 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
     
     fig = go.Figure()
     
-    # ===== AGREGAR RUTAS =====
+    # ===== AGREGAR RUTAS (solo si existen en TTL) =====
     if tipo_ruta in ["vehicular", "todas"]:
         coords = []
         for l in RUTA_VEHICULAR:
@@ -311,7 +306,7 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
                 lon=[c["lon"] for c in coords],
                 mode="lines",
                 line=dict(width=3, color="#e67e22"),
-                name="🚌 Ruta vehicular",
+                name="Ruta vehicular",
                 hoverinfo="skip"
             ))
     
@@ -326,20 +321,23 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
                 lon=[c["lon"] for c in coords],
                 mode="lines",
                 line=dict(width=3, color="#8e44ad"),
-                name="🚶 Ruta Lomada (24h)",
+                name="Ruta Lomada",
                 hoverinfo="skip"
             ))
     
-    # ===== AGREGAR LUGARES DEL TTL =====
+    # ===== AGREGAR LUGARES - SOLO DEL TTL =====
     for nombre, lugar in LUGARES_TTL.items():
-        color = COLORES.get(nombre, "#e67e22")
-        icono = ICONOS.get(nombre, "📍")
+        color = generar_color(nombre)
+        icono = asignar_icono(nombre)
         
         hover_text = f"""
         <b style='font-size: 16px; color: {color};'>{icono} {nombre}</b><br>
         <span style='font-size: 13px;'>
-        📏 <b>Coordenadas:</b> {lugar['lat']:.4f}, {lugar['lon']:.4f}<br>
-        🏷️ <b>ID:</b> {lugar.get('id', nombre)}
+        📏 {lugar['lat']:.4f}, {lugar['lon']:.4f}<br>
+        🏔️ {lugar['alt']:.0f} msnm<br>
+        </span>
+        <span style='font-size: 12px; color: #555;'>
+        {lugar['descripcion']}
         </span>
         """
         
@@ -378,22 +376,15 @@ def crear_mapa_ttl(tipo_ruta="todas", estilo_mapa="calle", token_mapbox=None):
         mapbox=mapbox_config,
         margin=dict(l=0, r=0, t=0, b=0),
         height=650,
-        clickmode='event+select',
-        legend=dict(
-            yanchor="top", y=0.99,
-            xanchor="left", x=0.01,
-            bgcolor="rgba(255,255,255,0.9)",
-            bordercolor="#e9ecef",
-            borderwidth=1
-        )
+        clickmode='event+select'
     )
     
     return fig
 
 # ============================================================================
-# PERFIL DE ALTITUD MEJORADO
+# PERFIL DE ALTITUD
 # ============================================================================
-def crear_perfil_altitud_mejorado():
+def crear_perfil_altitud():
     """Perfil de altitud con zonas y pendiente"""
     
     ruta = [
@@ -487,7 +478,6 @@ def mostrar_galeria_fotos():
     **📸 Próximamente:**
     - Fotos de la peregrinación
     - Videos de danzas rituales
-    - Entrevistas a peregrinos
     - Paisajes de la ruta
     """)
 
@@ -496,7 +486,7 @@ def mostrar_galeria_fotos():
 # ============================================================================
 def main():
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
         <div style="font-size: 4rem;">🏔️</div>
         <div>
@@ -504,7 +494,7 @@ def main():
                 Qoyllur Rit'i Explorer
             </h1>
             <p style="margin: 0; color: #7f8c8d; font-size: 1.2rem;">
-                Conocimiento ancestral · Mapas interactivos · Galería visual · Sinakara, Cusco
+                Conocimiento ancestral · Mapas interactivos · Sinakara, Cusco
             </p>
             <p style="margin: 5px 0 0 0; color: #e67e22; font-size: 0.9rem;">
                 🗺️ {len(LUGARES_TTL)} lugares sagrados cargados desde el TTL
@@ -530,7 +520,7 @@ def main():
         
         **📍 Lugares en mapa:** {len(LUGARES_TTL)} sitios sagrados  
         **📅 Fecha:** 58 días después del Miércoles de Ceniza  
-        **📍 Altitud:** 4,800 - 5,200 msnm  
+        **⛰️ Altitud:** 4,800 - 5,200 msnm  
         **👥 Participantes:** Ocho naciones
         """)
     
@@ -579,11 +569,11 @@ def main():
             </div>
             """, unsafe_allow_html=True)
     
-    # ===== TAB 2: MAPA CON LUGARES DEL TTL =====
+    # ===== TAB 2: MAPA - SOLO LUGARES DEL TTL =====
     with tab2:
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
-            st.markdown(f"### 🗺️ Mapa del TTL ({len(LUGARES_TTL)} lugares)")
+            st.markdown(f"### 🗺️ Mapa Sagrado ({len(LUGARES_TTL)} lugares)")
         with col2:
             tipo_ruta = st.radio(
                 "Rutas:",
@@ -632,7 +622,7 @@ def main():
         with col4:
             st.metric("🎯 Llegada", "Tayankani", "3,800 msnm")
         
-        perfil = crear_perfil_altitud_mejorado()
+        perfil = crear_perfil_altitud()
         st.plotly_chart(perfil, use_container_width=True)
     
     # ===== TAB 4: EVENTOS =====
@@ -643,7 +633,7 @@ def main():
             st.markdown("### 📋 Eventos por Día")
             eventos_por_dia = {
                 "Día 1": 1, "Día 2": 9, "Día 3": 6,
-                "Noche": 1, "Día 4": 6, "Noche": 2, "Día 5": 5
+                "Noche L1": 1, "Día 4": 6, "Noche M": 2, "Día 5": 5
             }
             df_eventos = pd.DataFrame([
                 {"dia": d, "eventos": e} for d, e in eventos_por_dia.items()
@@ -657,13 +647,13 @@ def main():
         with col2:
             st.markdown("### ⏳ Línea de Tiempo")
             timeline = {
-                "Día 1 (Sábado)": "🟡 Gelación",
+                "Día 1 (Sábado)": "🟡 Gelación y ensayos",
                 "Día 2 (Domingo)": "🟠 Misa · Romería · Viaje",
                 "Día 3 (Lunes)": "🔵 Ascenso · Misa Ukukus",
-                "Noche Lunes": "🌙 Subida glaciar",
+                "Noche Lunes": "🌙 Subida al glaciar",
                 "Día 4 (Martes)": "🟢 Bajada · Inicio Lomada",
-                "Noche Martes": "⭐ Canto Q'espi Cruz",
-                "Día 5 (Miércoles)": "🔴 Inti Alabado"
+                "Noche Martes": "⭐ Canto en Q'espi Cruz",
+                "Día 5 (Miércoles)": "🔴 Inti Alabado · Retorno"
             }
             for dia, evento in timeline.items():
                 st.markdown(f"""
@@ -682,13 +672,13 @@ def main():
     st.markdown("""
     <div class="footer">
         <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 20px;">
-            <span>🏔️ Qoyllur Rit'i Explorer V2.0 Premium</span>
+            <span>🏔️ Qoyllur Rit'i Explorer</span>
             <span>•</span>
             <span>🗺️ Lugares del TTL</span>
             <span>•</span>
             <span>📊 Perfil con pendiente</span>
             <span>•</span>
-            <span>✨ 100% funcional</span>
+            <span>✨ 100% TTL</span>
         </div>
         <div style="font-size: 0.7rem; color: #95a5a6;">
             Conocimiento ancestral de la Nación Paucartambo · Sinakara, Cusco
