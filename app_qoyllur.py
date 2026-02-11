@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-📱 Qoyllur Rit'i Explorer - VERSIÓN COMPLETA CORREGIDA
-Fase 1.5: UltraLite + UI Elegante + Mapas + Gráficos + Galería
+📱 Qoyllur Rit'i Explorer - VERSIÓN 2.0 PREMIUM
+✅ Mapas con iconos personalizados
+✅ Perfil de altitud con zonas y pendiente
+✅ Tooltips detallados
+✅ Estilos de mapa (Satélite, Calle, Outdoor, Oscuro)
+✅ Listo para Mapbox (solo agregar token)
 """
 
 import streamlit as st
@@ -24,7 +28,7 @@ from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
 # CONFIGURACIÓN DE LA PÁGINA
 # ============================================================================
 st.set_page_config(
-    page_title="Qoyllur Rit'i Explorer - Completo",
+    page_title="Qoyllur Rit'i Explorer - Premium",
     page_icon="🏔️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -35,16 +39,10 @@ st.set_page_config(
 # ============================================================================
 st.markdown("""
 <style>
-    /* Colores de la tierra andina */
-    :root {
-        --andean-sky: #1e3c72;
-        --andean-sunset: #e67e22;
-        --andean-stone: #7f8c8d;
-        --andean-textile: #c0392b;
-        --andean-leaf: #27ae60;
-        --andean-snow: #ecf0f1;
-        --andean-gold: #f39c12;
-        --andean-purple: #8e44ad;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
     }
     
     .main {
@@ -53,8 +51,8 @@ st.markdown("""
     
     h1, h2, h3 {
         color: #1e3c72;
-        font-family: 'Inter', sans-serif;
-        font-weight: 600;
+        font-weight: 700;
+        letter-spacing: -0.02em;
     }
     
     .stButton button {
@@ -62,16 +60,17 @@ st.markdown("""
         color: white;
         border: none;
         border-radius: 12px;
-        padding: 12px 24px;
+        padding: 12px 28px;
         font-weight: 600;
         transition: all 0.3s ease;
         border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     
     .stButton button:hover {
         background: linear-gradient(135deg, #2c5a8c 0%, #1e3c72 100%);
         transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 8px 12px rgba(0,0,0,0.1);
     }
     
     .respuesta-box {
@@ -79,55 +78,39 @@ st.markdown("""
         border-left: 6px solid #e67e22;
         border-radius: 16px;
         padding: 28px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.05);
         margin: 20px 0;
         font-size: 1.1rem;
         line-height: 1.7;
         border: 1px solid #f0f0f0;
     }
     
-    .sugerencia-card {
-        background: linear-gradient(135deg, #f8f9fa, #ffffff);
-        border: 1px solid #e9ecef;
-        border-radius: 12px;
+    .metric-card {
+        background: white;
         padding: 16px;
-        margin: 8px 0;
-        transition: all 0.2s ease;
-        cursor: pointer;
-        border-bottom: 3px solid #e67e22;
-    }
-    
-    .sugerencia-card:hover {
-        transform: translateX(6px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.05);
-        background: white;
-    }
-    
-    .photo-card {
-        background: white;
-        border-radius: 16px;
-        padding: 12px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-        transition: all 0.3s ease;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         border: 1px solid #f0f0f0;
+        transition: all 0.2s ease;
     }
     
-    .photo-card:hover {
-        transform: scale(1.02);
-        box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+        border-color: #e67e22;
     }
     
     .badge-andino {
         background: #e67e22;
         color: white;
-        padding: 4px 12px;
+        padding: 4px 14px;
         border-radius: 20px;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         font-weight: 600;
         display: inline-block;
-        margin-left: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        box-shadow: 0 2px 4px rgba(230,126,34,0.2);
     }
     
     .footer {
@@ -139,7 +122,33 @@ st.markdown("""
         margin-top: 40px;
     }
     
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    /* Tooltips personalizados */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        background-color: #1e3c72;
+        color: white;
+        text-align: center;
+        padding: 6px 12px;
+        border-radius: 8px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -60px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.8rem;
+    }
+    
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -251,42 +260,6 @@ GALERIA_FOTOS = [
         "descripcion": "Ukumaris ascendiendo al glaciar con antorchas",
         "url": "https://via.placeholder.com/400x300/34495e/ffffff?text=❄️+Glaciar+Colque+Punku",
         "fecha": "2025-06-16"
-    },
-    {
-        "id": "IMG_007",
-        "titulo": "Machu Cruz",
-        "lugar": "MachuCruz",
-        "evento": "RitualMachuCruz_2025",
-        "descripcion": "Pausa ritual para comer maíz y queso",
-        "url": "https://via.placeholder.com/400x300/f39c12/ffffff?text=✝️+Machu+Cruz",
-        "fecha": "2025-06-17"
-    },
-    {
-        "id": "IMG_008",
-        "titulo": "Despedida en Yanaqocha",
-        "lugar": "Yanaqocha",
-        "evento": "RitualDespedida_Yanaqocha_2025",
-        "descripcion": "Abrazos y despedidas en la laguna",
-        "url": "https://via.placeholder.com/400x300/16a085/ffffff?text=💧+Laguna+Yanaqocha",
-        "fecha": "2025-06-17"
-    },
-    {
-        "id": "IMG_009",
-        "titulo": "Inti Alabado",
-        "lugar": "IntiLloksimuy",
-        "evento": "IntiAlabado_2025",
-        "descripcion": "Saludo al sol al amanecer en Tayankani",
-        "url": "https://via.placeholder.com/400x300/f1c40f/ffffff?text=☀️+Inti+Alabado",
-        "fecha": "2025-06-18"
-    },
-    {
-        "id": "IMG_010",
-        "titulo": "Procesión final",
-        "lugar": "PlazaOcongate",
-        "evento": "ProcesionEntradaOcongate_2025",
-        "descripcion": "Entrada procesional a Ocongate, fin de la peregrinación",
-        "url": "https://via.placeholder.com/400x300/2980b9/ffffff?text=🎉+Ocongate",
-        "fecha": "2025-06-18"
     }
 ]
 
@@ -320,75 +293,67 @@ def cargar_conocimiento():
     return UltraLiteQoyllurV15(ttl_path)
 
 # ============================================================================
-# FUNCIONES DE VISUALIZACIÓN
+# MAPA MEJORADO - CON ICONOS PERSONALIZADOS Y TOOLTIPS
 # ============================================================================
-
-def crear_mapa_interactivo(tipo_ruta="todas", estilo_mapa="satelite"):
+def crear_mapa_mejorado(tipo_ruta="todas", estilo_mapa="satelite", token_mapbox=None):
     """
-    Crea mapa interactivo con:
-    ✅ Iconos personalizados por tipo de lugar
-    ✅ Tooltips con información detallada
-    ✅ Imagen satelital o mapa base
-    ✅ Rutas con flechas de dirección
-    ✅ Popups con descripción
+    Crea mapa interactivo con iconos personalizados y tooltips detallados
     """
     
-    # Diccionario de iconos personalizados por tipo
+    # Diccionario de iconos Maki (compatibles con Mapbox)
     ICONOS = {
-        "pueblo": "town-hall",  # Edificio de pueblo
-        "iglesia": "place-of-worship",  # Iglesia
-        "cementerio": "cemetery",  # Cementerio
-        "plaza": "square",  # Plaza
-        "santuario": "religious-christian",  # Santuario
-        "glaciar": "snow",  # Glaciar/nieve
-        "cruz": "cross",  # Cruz
-        "laguna": "water",  # Agua
-        "descanso": "bench",  # Banco/descanso
-        "rio": "river",  # Río
-        "solar": "sun",  # Sol
-        "capilla": "chapel",  # Capilla
-        "gruta": "cave",  # Cueva
-        "inicio": "flag",  # Bandera de inicio
-        "casa": "home",  # Casa
-        "cruz": "cross",  # Cruz
+        "pueblo": "town-hall",
+        "iglesia": "place-of-worship",
+        "cementerio": "cemetery",
+        "plaza": "square",
+        "santuario": "religious-christian",
+        "glaciar": "snow",
+        "cruz": "cross",
+        "laguna": "water",
+        "descanso": "bench",
+        "rio": "river",
+        "solar": "sun",
+        "capilla": "chapel",
+        "gruta": "cave",
+        "inicio": "flag",
+        "casa": "home"
     }
     
-    # Tamaños de iconos por tipo
+    # Tamaños de iconos
     TAMAÑOS = {
-        "pueblo": 12,
-        "iglesia": 14,
-        "cementerio": 11,
-        "plaza": 11,
-        "santuario": 16,
-        "glaciar": 15,
-        "cruz": 13,
-        "laguna": 12,
-        "descanso": 10,
-        "rio": 10,
-        "solar": 14,
-        "capilla": 12,
-        "gruta": 11,
-        "inicio": 14,
-        "casa": 11,
+        "pueblo": 12, "iglesia": 14, "cementerio": 11, "plaza": 11,
+        "santuario": 16, "glaciar": 15, "cruz": 13, "laguna": 12,
+        "descanso": 10, "rio": 10, "solar": 14, "capilla": 12,
+        "gruta": 11, "inicio": 14, "casa": 11
     }
     
-    # Colores por tipo (mantenemos los existentes)
+    # Colores por tipo
     COLORES = {
-        "pueblo": "#1e3c72",
-        "iglesia": "#c0392b",
-        "cementerio": "#7f8c8d",
-        "plaza": "#e67e22",
-        "santuario": "#f39c12",
-        "glaciar": "#3498db",
-        "cruz": "#27ae60",
-        "laguna": "#16a085",
-        "descanso": "#8e44ad",
-        "rio": "#2980b9",
-        "solar": "#f1c40f",
-        "capilla": "#e74c3c",
-        "gruta": "#95a5a6",
-        "inicio": "#2c3e50",
-        "casa": "#d35400"
+        "pueblo": "#1e3c72", "iglesia": "#c0392b", "cementerio": "#7f8c8d",
+        "plaza": "#e67e22", "santuario": "#f39c12", "glaciar": "#3498db",
+        "cruz": "#27ae60", "laguna": "#16a085", "descanso": "#8e44ad",
+        "rio": "#2980b9", "solar": "#f1c40f", "capilla": "#e74c3c",
+        "gruta": "#95a5a6", "inicio": "#2c3e50", "casa": "#d35400"
+    }
+    
+    # Descripciones detalladas para tooltips
+    DESCRIPCIONES = {
+        "Paucartambo": "Pueblo de partida de la Nación Paucartambo",
+        "SantuarioQoylluriti": "Santuario del Señor de Qoyllur Rit'i - 4,800 msnm",
+        "ColquePunku": "Glaciar sagrado - Lugar de rituales nocturnos - 5,200 msnm",
+        "MachuCruz": "Cruz ceremonial - Pausa para comer maíz y queso",
+        "Yanaqocha": "Laguna de despedida - Rituales de abrazo",
+        "Yanaqancha": "Lugar de descanso de 4 horas",
+        "QespiCruz": "Punto del canto de medianoche - Qapaq Qollas",
+        "IntiLloksimuy": "Lugar del Inti Alabado - Saludo al sol",
+        "Tayancani": "Pueblo donde se deposita la imagen del Señor",
+        "CapillaTayankani": "Capilla donde reside la imagen todo el año",
+        "GrutaTayankani": "Gruta de rituales finales de los Ukukus",
+        "Ocongate": "Pueblo donde termina oficialmente la festividad",
+        "Mahuayani": "Punto de inicio de la caminata al santuario",
+        "Huancarani": "Cruce vial - Punto de encuentro de danzantes",
+        "Ccatcca": "Pueblo de descanso y comida comunitaria",
+        "CasaPriosteOcongate": "Casa del prioste - Autoridad de la fiesta"
     }
     
     # Estilos de mapa disponibles
@@ -401,50 +366,26 @@ def crear_mapa_interactivo(tipo_ruta="todas", estilo_mapa="satelite"):
     
     fig = go.Figure()
     
-    # Convertir datos a DataFrame
+    # Preparar datos
     df_lugares = []
     for nombre, coords in LUGARES_COORDENADAS.items():
-        # Descripciones detalladas para tooltips
-        descripciones = {
-            "Paucartambo": "Pueblo de partida de la Nación Paucartambo",
-            "SantuarioQoylluriti": "Santuario del Señor de Qoyllur Rit'i - 4,800 msnm",
-            "ColquePunku": "Glaciar sagrado - Lugar de rituales nocturnos - 5,200 msnm",
-            "MachuCruz": "Cruz ceremonial - Pausa para comer maíz y queso",
-            "Yanaqocha": "Laguna de despedida - Rituales de abrazo",
-            "Yanaqancha": "Lugar de descanso de 4 horas",
-            "QespiCruz": "Punto del canto de medianoche - Qapaq Qollas",
-            "IntiLloksimuy": "Lugar del Inti Alabado - Saludo al sol",
-            "Tayancani": "Pueblo donde se deposita la imagen del Señor",
-            "CapillaTayankani": "Capilla donde reside la imagen todo el año",
-            "GrutaTayankani": "Gruta de rituales finales de los Ukukus",
-            "Ocongate": "Pueblo donde termina oficialmente la festividad",
-            "PlazaOcongate": "Plaza de la procesión final",
-            "Mahuayani": "Punto de inicio de la caminata al santuario",
-            "Huancarani": "Cruce vial - Punto de encuentro de danzantes",
-            "Ccatcca": "Pueblo de descanso y comida comunitaria",
-            "IglesiaCcatcca": "Iglesia visitada ritualmente",
-            "PlazaCcatcca": "Plaza de la comida comunitaria (asado con mote)",
-            "CasaPriosteOcongate": "Casa del prioste - Autoridad de la fiesta"
-        }
-        
         df_lugares.append({
             "nombre": nombre,
             "lat": coords["lat"],
             "lon": coords["lon"],
             "alt": coords["alt"],
             "tipo": coords["tipo"],
-            "descripcion": descripciones.get(nombre, f"Lugar sagrado: {nombre}"),
+            "descripcion": DESCRIPCIONES.get(nombre, f"Lugar sagrado: {nombre}"),
             "icono": ICONOS.get(coords["tipo"], "marker"),
             "tamano": TAMAÑOS.get(coords["tipo"], 10)
         })
     
     df = pd.DataFrame(df_lugares)
     
-    # Agregar puntos con iconos personalizados
+    # Agregar puntos al mapa
     for tipo in df["tipo"].unique():
         df_tipo = df[df["tipo"] == tipo]
         
-        # Texto para tooltip detallado
         hover_text = []
         for _, row in df_tipo.iterrows():
             texto = f"""
@@ -482,125 +423,194 @@ def crear_mapa_interactivo(tipo_ruta="todas", estilo_mapa="satelite"):
             )
         ))
     
-    # Agregar rutas con flechas de dirección
+    # Agregar rutas
     if tipo_ruta in ["vehicular", "todas"]:
-        coords_ruta = []
-        nombres_ruta = []
-        for lugar in RUTA_VEHICULAR:
-            if lugar in LUGARES_COORDENADAS:
-                coords_ruta.append(LUGARES_COORDENADAS[lugar])
-                nombres_ruta.append(lugar)
+        coords_ruta = [LUGARES_COORDENADAS[l] for l in RUTA_VEHICULAR if l in LUGARES_COORDENADAS]
+        nombres_ruta = [l for l in RUTA_VEHICULAR if l in LUGARES_COORDENADAS]
         
-        # Línea principal
         fig.add_trace(go.Scattermapbox(
             lat=[c["lat"] for c in coords_ruta],
             lon=[c["lon"] for c in coords_ruta],
             mode="lines+markers",
             line=dict(width=4, color="#e67e22"),
-            marker=dict(
-                size=8,
-                color="#e67e22",
-                symbol="marker",
-                allowoverlap=False
-            ),
+            marker=dict(size=8, color="#e67e22", symbol="marker"),
             name="🚌 Ruta vehicular",
-            hovertemplate="<b>Ruta vehicular</b><br>" +
-                         f"Paucartambo → Mahuayani<br>" +
-                         "Distancia: ~120 km<br>" +
-                         "Paradas: " + ", ".join(nombres_ruta[1:-1]) + "<br>" +
-                         "<extra></extra>"
+            hovertemplate="<b>Ruta vehicular</b><br>Paucartambo → Mahuayani<br>Paradas: " + 
+                         ", ".join(nombres_ruta[1:-1]) + "<br><extra></extra>"
         ))
-        
-        # Agregar flechas de dirección (puntos cada 2 posiciones)
-        for i in range(0, len(coords_ruta)-1, 2):
-            if i+1 < len(coords_ruta):
-                fig.add_trace(go.Scattermapbox(
-                    lat=[coords_ruta[i]["lat"], coords_ruta[i+1]["lat"]],
-                    lon=[coords_ruta[i]["lon"], coords_ruta[i+1]["lon"]],
-                    mode="lines",
-                    line=dict(width=0),
-                    showlegend=False,
-                    hoverinfo="skip"
-                ))
     
     if tipo_ruta in ["lomada", "todas"]:
-        coords_lomada = []
-        nombres_lomada = []
-        for lugar in RUTA_LOMADA:
-            if lugar in LUGARES_COORDENADAS:
-                coords_lomada.append(LUGARES_COORDENADAS[lugar])
-                nombres_lomada.append(lugar)
+        coords_lomada = [LUGARES_COORDENADAS[l] for l in RUTA_LOMADA if l in LUGARES_COORDENADAS]
+        nombres_lomada = [l for l in RUTA_LOMADA if l in LUGARES_COORDENADAS]
         
         fig.add_trace(go.Scattermapbox(
             lat=[c["lat"] for c in coords_lomada],
             lon=[c["lon"] for c in coords_lomada],
             mode="lines+markers",
             line=dict(width=4, color="#8e44ad"),
-            marker=dict(
-                size=8,
-                color="#8e44ad",
-                symbol="marker",
-                allowoverlap=False
-            ),
+            marker=dict(size=8, color="#8e44ad", symbol="marker"),
             name="🚶 Ruta Lomada (24h)",
-            hovertemplate="<b>Lomada / Loman Pureq</b><br>" +
-                         "Caminata ritual de 24 horas<br>" +
-                         "Santuario → Tayankani<br>" +
-                         "Distancia: ~35 km<br>" +
-                         "Hitos: " + ", ".join(nombres_lomada[1:-1]) + "<br>" +
-                         "<extra></extra>"
+            hovertemplate="<b>Lomada / Loman Pureq</b><br>Caminata ritual de 24 horas<br>" +
+                         "Hitos: " + ", ".join(nombres_lomada[1:-1]) + "<br><extra></extra>"
         ))
     
-    # Configurar mapa con estilo seleccionado
-    estilo = ESTILOS_MAPA.get(estilo_mapa, "carto-positron")
+    # Configurar mapa
+    mapbox_config = {
+        "style": ESTILOS_MAPA.get(estilo_mapa, "carto-positron"),
+        "center": dict(lat=-13.5, lon=-71.4),
+        "zoom": 8.2
+    }
+    
+    if token_mapbox:
+        mapbox_config["accesstoken"] = token_mapbox
     
     fig.update_layout(
-        mapbox=dict(
-            style=estilo,
-            center=dict(lat=-13.5, lon=-71.4),
-            zoom=8.2,
-            pitch=0,
-            bearing=0
-        ),
+        mapbox=mapbox_config,
         margin=dict(l=0, r=0, t=40, b=0),
         height=650,
         legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor="rgba(255,255,255,0.9)",
-            bordercolor="#e9ecef",
-            borderwidth=1,
-            font=dict(size=11)
+            yanchor="top", y=0.99, xanchor="left", x=0.01,
+            bgcolor="rgba(255,255,255,0.9)", bordercolor="#e9ecef", borderwidth=1
         ),
         title=dict(
             text="🗺️ Mapa Sagrado de Qoyllur Rit'i",
-            font=dict(size=22, color="#1e3c72", family="Inter"),
-            x=0.5,
-            y=0.98
+            font=dict(size=22, color="#1e3c72"),
+            x=0.5
         )
     )
     
+    return fig, df
+
+# ============================================================================
+# PERFIL DE ALTITUD MEJORADO - CON ZONAS Y PENDIENTE
+# ============================================================================
+def crear_perfil_altitud_mejorado():
+    """
+    Crea perfil de altitud con zonas coloreadas y gráfico de pendiente
+    """
+    
+    ruta_completa = [
+        {"lugar": "Paucartambo", "dist": 0, "alt": 2900, "tipo": "pueblo", "icono": "🚌"},
+        {"lugar": "Huancarani", "dist": 25, "alt": 3500, "tipo": "pueblo", "icono": "🤝"},
+        {"lugar": "Ccatcca", "dist": 45, "alt": 3700, "tipo": "pueblo", "icono": "🍖"},
+        {"lugar": "Ocongate", "dist": 65, "alt": 3800, "tipo": "pueblo", "icono": "🏠"},
+        {"lugar": "Mahuayani", "dist": 85, "alt": 4200, "tipo": "inicio", "icono": "🚶"},
+        {"lugar": "Santuario", "dist": 95, "alt": 4800, "tipo": "santuario", "icono": "⛪"},
+        {"lugar": "MachuCruz", "dist": 98, "alt": 4900, "tipo": "cruz", "icono": "✝️"},
+        {"lugar": "Yanaqocha", "dist": 102, "alt": 4850, "tipo": "laguna", "icono": "💧"},
+        {"lugar": "Yanaqancha", "dist": 106, "alt": 4750, "tipo": "descanso", "icono": "😴"},
+        {"lugar": "QquchiyocWayqo", "dist": 110, "alt": 4700, "tipo": "rio", "icono": "💦"},
+        {"lugar": "QespiCruz", "dist": 115, "alt": 4600, "tipo": "cruz", "icono": "🎵"},
+        {"lugar": "IntiLloksimuy", "dist": 120, "alt": 4500, "tipo": "solar", "icono": "☀️"},
+        {"lugar": "Tayancani", "dist": 125, "alt": 3800, "tipo": "pueblo", "icono": "🏁"}
+    ]
+    
+    df_ruta = pd.DataFrame(ruta_completa)
+    
+    fig = make_subplots(
+        rows=2, cols=1,
+        row_heights=[0.7, 0.3],
+        shared_xaxes=True,
+        vertical_spacing=0.1,
+        subplot_titles=("⛰️ Perfil de Altitud", "📊 Pendiente del Terreno")
+    )
+    
+    # Perfil de altitud
+    fig.add_trace(go.Scatter(
+        x=df_ruta["dist"],
+        y=df_ruta["alt"],
+        mode="lines+markers",
+        line=dict(color="#1e3c72", width=4),
+        marker=dict(
+            size=8,
+            color=df_ruta["alt"],
+            colorscale="Viridis",
+            showscale=True,
+            colorbar=dict(title="msnm", x=1.05)
+        ),
+        fill="tozeroy",
+        fillcolor="rgba(30,60,114,0.1)",
+        name="Perfil",
+        text=df_ruta["lugar"],
+        hovertemplate="<b>%{text}</b><br>📏 %{x:.0f} km<br>🏔️ %{y:.0f} msnm<extra></extra>",
+        row=1, col=1
+    ))
+    
+    # Zonas coloreadas
+    fig.add_vrect(x0=0, x1=85, fillcolor="rgba(46,204,113,0.1)", line_width=0, 
+                  annotation_text="🚌 Zona vehicular", annotation_position="top left", row=1, col=1)
+    fig.add_vrect(x0=85, x1=95, fillcolor="rgba(241,196,15,0.1)", line_width=0,
+                  annotation_text="🚶 Ascenso", annotation_position="top left", row=1, col=1)
+    fig.add_vrect(x0=95, x1=125, fillcolor="rgba(155,89,182,0.1)", line_width=0,
+                  annotation_text="🏔️ Lomada (24h)", annotation_position="top left", row=1, col=1)
+    
+    # Hitos principales
+    hitos = df_ruta[df_ruta["lugar"].isin(["Paucartambo", "Mahuayani", "Santuario", "Tayancani"])]
+    fig.add_trace(go.Scatter(
+        x=hitos["dist"], y=hitos["alt"],
+        mode="markers+text",
+        marker=dict(size=14, color="#e67e22", symbol="star", line=dict(color="white", width=2)),
+        text=hitos["lugar"], textposition="top center",
+        name="Hitos principales", row=1, col=1
+    ))
+    
+    # Gráfico de pendiente
+    pendientes = []
+    for i in range(1, len(df_ruta)):
+        pend = (df_ruta.loc[i, "alt"] - df_ruta.loc[i-1, "alt"]) / (df_ruta.loc[i, "dist"] - df_ruta.loc[i-1, "dist"])
+        pendientes.append({
+            "x": (df_ruta.loc[i, "dist"] + df_ruta.loc[i-1, "dist"]) / 2,
+            "pend": pend * 100
+        })
+    
+    df_pend = pd.DataFrame(pendientes)
+    colors = ['#27ae60' if p > 0 else '#e74c3c' for p in df_pend["pend"]]
+    
+    fig.add_trace(go.Bar(
+        x=df_pend["x"], y=df_pend["pend"],
+        marker_color=colors,
+        name="Pendiente",
+        hovertemplate="Pendiente: %{y:.1f}%<extra></extra>",
+        row=2, col=1
+    ))
+    
+    fig.add_hline(y=0, line_dash="dash", line_color="#7f8c8d", opacity=0.5, row=2, col=1)
+    
+    fig.update_layout(
+        height=700,
+        hovermode="x unified",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
+    )
+    
+    fig.update_xaxes(title_text="Distancia (km)", gridcolor="#e9ecef", row=1, col=1)
+    fig.update_yaxes(title_text="Altitud (msnm)", gridcolor="#e9ecef", row=1, col=1)
+    fig.update_xaxes(title_text="Distancia (km)", gridcolor="#e9ecef", row=2, col=1)
+    fig.update_yaxes(title_text="Pendiente (%)", gridcolor="#e9ecef", row=2, col=1)
+    
     return fig
 
+# ============================================================================
+# GALERÍA DE FOTOS MEJORADA
+# ============================================================================
 def mostrar_galeria_fotos(fotos=GALERIA_FOTOS):
-    """Muestra galería de fotos en grid"""
+    """Muestra galería de fotos en grid responsive"""
+    
     st.markdown("### 📸 Galería de la Peregrinación")
     
-    # Filtros
     col1, col2, col3 = st.columns(3)
     with col1:
         dias = ["Todos"] + sorted(list(set([f["fecha"] for f in fotos])))
-        filtro_dia = st.selectbox("Filtrar por día", dias, key="filtro_dia")
+        filtro_dia = st.selectbox("📅 Filtrar por día", dias, key="filtro_dia")
     with col2:
         lugares = ["Todos"] + sorted(list(set([f["lugar"] for f in fotos])))
-        filtro_lugar = st.selectbox("Filtrar por lugar", lugares, key="filtro_lugar")
+        filtro_lugar = st.selectbox("📍 Filtrar por lugar", lugares, key="filtro_lugar")
     with col3:
         eventos = ["Todos"] + sorted(list(set([f["evento"] for f in fotos])))
-        filtro_evento = st.selectbox("Filtrar por evento", eventos, key="filtro_evento")
+        filtro_evento = st.selectbox("🏷️ Filtrar por evento", eventos, key="filtro_evento")
     
-    # Aplicar filtros
     fotos_filtradas = fotos.copy()
     if filtro_dia != "Todos":
         fotos_filtradas = [f for f in fotos_filtradas if f["fecha"] == filtro_dia]
@@ -609,24 +619,27 @@ def mostrar_galeria_fotos(fotos=GALERIA_FOTOS):
     if filtro_evento != "Todos":
         fotos_filtradas = [f for f in fotos_filtradas if f["evento"] == filtro_evento]
     
-    # Mostrar en grid de 3 columnas
     cols = st.columns(3)
     for i, foto in enumerate(fotos_filtradas[:9]):
         with cols[i % 3]:
             st.markdown(f"""
-            <div class="photo-card">
-                <img src="{foto['url']}" style="width:100%; border-radius:12px; margin-bottom:8px;">
-                <div style="padding: 8px;">
+            <div style="background: white; border-radius: 16px; padding: 12px; margin-bottom: 20px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;
+                        transition: all 0.3s ease;">
+                <img src="{foto['url']}" style="width:100%; border-radius:12px; margin-bottom:12px;">
+                <div style="padding: 4px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="font-weight:600; color:#1e3c72;">{foto['titulo']}</span>
                         <span class="badge-andino">{foto['fecha']}</span>
                     </div>
-                    <p style="color:#5d6d7e; font-size:0.9rem; margin-top:6px;">
+                    <p style="color:#5d6d7e; font-size:0.9rem; margin-top:8px;">
                         {foto['descripcion']}
                     </p>
                     <div style="display:flex; gap:8px; margin-top:8px;">
-                        <span class="chip">📍 {foto['lugar']}</span>
-                        <span class="chip">🏷️ {foto['evento'][:20]}...</span>
+                        <span style="background: #e9ecef; padding: 4px 12px; border-radius: 20px;
+                                   font-size:0.75rem; color:#495057;">
+                            📍 {foto['lugar']}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -639,9 +652,9 @@ def mostrar_galeria_fotos(fotos=GALERIA_FOTOS):
 # APP PRINCIPAL
 # ============================================================================
 def main():
-    # Header
+    
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 40px;">
+    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 30px;">
         <div style="font-size: 4rem;">🏔️</div>
         <div>
             <h1 style="margin: 0; font-size: 2.8rem; font-weight: 700; color: #1e3c72;">
@@ -654,20 +667,42 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # Token de Mapbox en sidebar (para probar después)
+    with st.sidebar:
+        st.markdown("### 🗺️ Configuración de Mapbox")
+        token_mapbox = st.text_input(
+            "Token de Mapbox (opcional)",
+            type="password",
+            help="Obtén tu token gratis en mapbox.com para imágenes satelitales"
+        )
+        
+        if token_mapbox:
+            st.success("✅ Token configurado - Imágenes satelitales activadas")
+        else:
+            st.info("ℹ️ Sin token: usando mapas base gratuitos")
+        
+        st.markdown("---")
+        st.markdown("### 🏔️ Qoyllur Rit'i")
+        st.markdown("""
+        **Señor de Qoyllur Rit'i**  
+        Peregrinación andina anual en Sinakara, Cusco.
+        
+        **📅 Fecha:** 58 días después del Miércoles de Ceniza  
+        **📍 Altitud:** 4,800 - 5,200 msnm  
+        **👥 Participantes:** Ocho naciones  
+        **⏳ Duración:** 5 días
+        """)
+    
     # Tabs principales
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "❓ Preguntas", 
-        "🗺️ Mapa Sagrado", 
-        "⛰️ Perfil de Altitud",
-        "📋 Eventos",
-        "📸 Galería"
+        "❓ Preguntas", "🗺️ Mapa Sagrado", "⛰️ Perfil de Altitud",
+        "📋 Eventos", "📸 Galería"
     ])
     
     # ========================================================================
     # TAB 1: PREGUNTAS
     # ========================================================================
     with tab1:
-        # Inicializar motor
         if 'rag' not in st.session_state:
             with st.spinner("🏔️ Cargando conocimiento ancestral..."):
                 st.session_state.rag = cargar_conocimiento()
@@ -677,8 +712,7 @@ def main():
             pregunta = st.selectbox(
                 "🔍 Selecciona una pregunta:",
                 options=[""] + TOP_10_PREGUNTAS,
-                format_func=lambda x: "🎯 Elige una pregunta..." if x == "" else x,
-                key="selector_preguntas"
+                format_func=lambda x: "🎯 Elige una pregunta..." if x == "" else x
             )
         with col2:
             st.markdown("<div style='margin-top: 26px;'>", unsafe_allow_html=True)
@@ -707,48 +741,69 @@ def main():
             """, unsafe_allow_html=True)
     
     # ========================================================================
-    # TAB 2: MAPA INTERACTIVO
+    # TAB 2: MAPA SAGRADO MEJORADO
     # ========================================================================
     with tab2:
-        col1, col2 = st.columns([4, 1])
+        col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
-            st.markdown("### 🗺️ Mapa Interactivo de Lugares Sagrados")
+            st.markdown("### 🗺️ Mapa Sagrado Interactivo")
         with col2:
             tipo_ruta = st.radio(
                 "Mostrar rutas:",
                 ["Todas", "Vehicular", "Lomada"],
-                horizontal=True,
-                key="selector_ruta"
+                horizontal=True
+            )
+        with col3:
+            estilo_mapa = st.selectbox(
+                "Estilo de mapa:",
+                ["Satélite", "Calle", "Outdoor", "Oscuro"],
+                index=0
             )
         
-        mapa = crear_mapa_interactivo(tipo_ruta.lower())
+        mapa, df_lugares = crear_mapa_mejorado(
+            tipo_ruta.lower(),
+            estilo_mapa.lower(),
+            token_mapbox if token_mapbox else None
+        )
         st.plotly_chart(mapa, use_container_width=True)
         
-        # Leyenda de lugares
-        with st.expander("📍 Ver todos los lugares sagrados"):
-            df_lugares = pd.DataFrame([
-                {"Lugar": n, "Tipo": d["tipo"], "Altitud": f"{d['alt']} msnm"}
-                for n, d in LUGARES_COORDENADAS.items()
-            ]).sort_values("Lugar")
-            st.dataframe(df_lugares, use_container_width=True, hide_index=True)
+        # Métricas
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("📍 Lugares sagrados", len(LUGARES_COORDENADAS))
+        with col2:
+            st.metric("🚌 Ruta vehicular", "~120 km")
+        with col3:
+            st.metric("🚶 Lomada", "~35 km · 24h")
+        with col4:
+            st.metric("🏔️ Altitud máxima", "5,200 msnm")
+        
+        # Leyenda
+        with st.expander("📍 Leyenda de lugares por tipo", expanded=False):
+            tipos_unicos = df_lugares["tipo"].unique()
+            cols = st.columns(3)
+            for i, tipo in enumerate(tipos_unicos[:12]):
+                with cols[i % 3]:
+                    st.markdown(f"• **{tipo.capitalize()}**")
     
     # ========================================================================
-    # TAB 3: PERFIL DE ALTITUD
+    # TAB 3: PERFIL DE ALTITUD MEJORADO
     # ========================================================================
     with tab3:
-        st.markdown("### ⛰️ Perfil de Altitud de la Peregrinación")
-        st.markdown("""
-        <div style="background: #fff9f0; padding: 16px; border-radius: 12px; margin-bottom: 20px;">
-            <span style="font-weight: 600;">📊 DATOS DE ALTITUD:</span><br>
-            • Salida: Paucartambo (2,900 msnm)<br>
-            • Punto más alto: Glaciar Colque Punku (5,200 msnm)<br>
-            • Desnivel acumulado: +2,300 metros<br>
-            • Llegada: Tayankani (3,800 msnm)
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("### ⛰️ Perfil Completo de la Peregrinación")
         
-        grafico_altitud = crear_grafico_altitud()
-        st.plotly_chart(grafico_altitud, use_container_width=True)
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("🏁 Partida", "Paucartambo", "2,900 msnm")
+        with col2:
+            st.metric("❄️ Punto más alto", "Colque Punku", "5,200 msnm")
+        with col3:
+            st.metric("📏 Desnivel", "+2,300 m", "⬆️ Ascenso")
+        with col4:
+            st.metric("🎯 Llegada", "Tayankani", "3,800 msnm")
+        
+        perfil = crear_perfil_altitud_mejorado()
+        st.plotly_chart(perfil, use_container_width=True)
     
     # ========================================================================
     # TAB 4: EVENTOS
@@ -758,32 +813,34 @@ def main():
         
         with col1:
             st.markdown("### 📋 Eventos por Día")
-            grafico_eventos = crear_grafico_eventos()
-            st.plotly_chart(grafico_eventos, use_container_width=True)
+            eventos_por_dia = {
+                "Día 1": 1, "Día 2": 9, "Día 3": 6,
+                "Noche L1-M": 1, "Día 4": 6, "Noche M-M": 2, "Día 5": 5
+            }
+            df_eventos = pd.DataFrame([
+                {"dia": d, "eventos": e} for d, e in eventos_por_dia.items()
+            ])
+            fig = px.bar(df_eventos, x="dia", y="eventos",
+                        color="eventos", color_continuous_scale=["#f39c12", "#e67e22", "#c0392b"])
+            fig.update_traces(texttemplate="%{y}", textposition="outside")
+            fig.update_layout(height=400, showlegend=False, plot_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
         
         with col2:
             st.markdown("### ⏳ Línea de Tiempo")
-            
-            timeline_data = {
-                "Día 1 (Sábado)": "🟡 Gelación y ensayos",
+            timeline = {
+                "Día 1 (Sábado)": "🟡 Gelación",
                 "Día 2 (Domingo)": "🟠 Misa · Romería · Viaje",
                 "Día 3 (Lunes)": "🔵 Ascenso · Misa Ukukus",
-                "Noche Lunes": "🌙 Subida al glaciar",
+                "Noche Lunes": "🌙 Subida glaciar",
                 "Día 4 (Martes)": "🟢 Bajada · Inicio Lomada",
-                "Noche Martes": "⭐ Canto en Q'espi Cruz",
-                "Día 5 (Miércoles)": "🔴 Inti Alabado · Retorno"
+                "Noche Martes": "⭐ Canto Q'espi Cruz",
+                "Día 5 (Miércoles)": "🔴 Inti Alabado"
             }
-            
-            for dia, evento in timeline_data.items():
+            for dia, evento in timeline.items():
                 st.markdown(f"""
-                <div style="
-                    background: white;
-                    border-left: 4px solid #e67e22;
-                    padding: 12px 16px;
-                    margin: 8px 0;
-                    border-radius: 0 12px 12px 0;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-                ">
+                <div style="background: white; border-left: 4px solid #e67e22; padding: 12px 16px;
+                           margin: 8px 0; border-radius: 0 12px 12px 0;">
                     <span style="font-weight: 600; color: #1e3c72;">{dia}</span>
                     <span style="color: #5d6d7e; margin-left: 12px;">{evento}</span>
                 </div>
@@ -797,8 +854,9 @@ def main():
         
         st.markdown("---")
         st.markdown("""
-        <div style="background: #e9ecef; padding: 20px; border-radius: 16px; margin-top: 20px;">
-            <span style="font-weight: 600; color: #1e3c72;">📸 ¿Tienes fotos de Qoyllur Rit'i?</span><br>
+        <div style="background: #fff9f0; padding: 24px; border-radius: 16px; margin-top: 20px;
+                    border: 1px solid #ffe0b2;">
+            <span style="font-weight: 600; color: #1e3c72; font-size: 1.1rem;">📸 ¿Tienes fotos de Qoyllur Rit'i?</span><br>
             <span style="color: #5d6d7e;">
                 Puedes agregar tus propias imágenes a la galería. 
                 Sube las fotos a GitHub y agrega las URLs en el archivo GALERIA_FOTOS.
@@ -806,22 +864,20 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # ========================================================================
-    # FOOTER
-    # ========================================================================
+    # Footer
     st.markdown("""
     <div class="footer">
         <div style="display: flex; justify-content: center; gap: 40px; margin-bottom: 20px;">
-            <span>🏔️ Qoyllur Rit'i Explorer - Versión Completa</span>
+            <span>🏔️ Qoyllur Rit'i Explorer V2.0 Premium</span>
             <span>•</span>
-            <span>🗺️ Mapas Interactivos</span>
+            <span>🗺️ Mapas con iconos</span>
             <span>•</span>
-            <span>📸 Galería Visual</span>
+            <span>📊 Perfil con pendiente</span>
             <span>•</span>
-            <span>📊 Gráficos de Altitud</span>
+            <span>🛰️ Listo para Mapbox</span>
         </div>
         <div style="font-size: 0.7rem; color: #95a5a6;">
-            Conocimiento ancestral de la Nación Paucartambo · Sinakara, Cusco · 100% local · Raspberry Pi 5
+            Conocimiento ancestral de la Nación Paucartambo · Sinakara, Cusco · 100% local
         </div>
     </div>
     """, unsafe_allow_html=True)
