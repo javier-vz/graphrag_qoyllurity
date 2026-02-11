@@ -265,71 +265,32 @@ def cargar_conocimiento():
 # MAPA CON LUGARES MARCADOS (CLARAMENTE VISIBLES)
 # ============================================================================
 
+# ============================================================================
+# MAPA CON LUGARES - VERSIÓN DIAGNÓSTICO
+# ============================================================================
 def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
-    """Mapa con LUGARES GRANDES Y VISIBLES - SIN opacity EN LINE"""
+    """Mapa con diagnóstico para ver por qué no se ven los lugares"""
     
     fig = go.Figure()
     
-    # 1. PRIMERO LAS RUTAS (atrás) - SIN opacity
-    if tipo_ruta in ["vehicular", "todas"]:
-        coords = [LUGARES_SAGRADOS[l] for l in RUTA_VEHICULAR if l in LUGARES_SAGRADOS]
-        if coords:
-            fig.add_trace(go.Scattermapbox(
-                lat=[c["lat"] for c in coords],
-                lon=[c["lon"] for c in coords],
-                mode="lines",
-                line=dict(width=3, color="#e67e22"),  # SIN opacity
-                name="Ruta vehicular",
-                hoverinfo="skip"
-            ))
+    # ===== 1. PRIMERO SOLO UN LUGAR DE PRUEBA =====
+    # Si esto se ve, el problema es de datos
+    # Si no se ve, el problema es de configuración del mapa
     
-    if tipo_ruta in ["lomada", "todas"]:
-        coords = [LUGARES_SAGRADOS[l] for l in RUTA_LOMADA if l in LUGARES_SAGRADOS]
-        if coords:
-            fig.add_trace(go.Scattermapbox(
-                lat=[c["lat"] for c in coords],
-                lon=[c["lon"] for c in coords],
-                mode="lines",
-                line=dict(width=3, color="#8e44ad"),  # SIN opacity
-                name="Ruta Lomada",
-                hoverinfo="skip"
-            ))
+    fig.add_trace(go.Scattermapbox(
+        lat=[-13.3127],  # Paucartambo
+        lon=[-71.6146],
+        mode="markers",
+        marker=dict(
+            size=30,  # GIGANTE
+            color="red",
+            symbol="marker"
+        ),
+        name="🔴 PUNTO DE PRUEBA",
+        showlegend=True
+    ))
     
-    # 2. LUEGO LOS LUGARES (GRANDES, COLORIDOS, VISIBLES)
-    for nombre, lugar in LUGARES_SAGRADOS.items():
-        # Tamaño más grande para que se vean bien
-        tamanio = 16
-        if lugar_seleccionado == nombre:
-            tamanio = 22  # Más grande si está seleccionado
-        
-        # Configurar marcador
-        marker_dict = {
-            "size": tamanio,
-            "color": lugar["color"],
-            "symbol": "marker"
-        }
-        
-        # Solo agregar borde si está seleccionado
-        if lugar_seleccionado == nombre:
-            marker_dict["line"] = {"width": 2, "color": "white"}
-        
-        fig.add_trace(go.Scattermapbox(
-            lat=[lugar["lat"]],
-            lon=[lugar["lon"]],
-            mode="markers",
-            marker=marker_dict,
-            name=nombre,
-            hovertemplate=f"""
-            <b style='font-size: 14px;'>{lugar['icono']} {nombre}</b><br>
-            {lugar['tipo']}<br>
-            📏 {lugar['alt']} msnm<br>
-            <span style='color: #e67e22;'>🖱️ Click para ver detalles</span>
-            <extra></extra>
-            """,
-            showlegend=False
-        ))
-    
-    # 3. CONFIGURACIÓN
+    # ===== 2. CONFIGURACIÓN BÁSICA =====
     fig.update_layout(
         mapbox=dict(
             style="carto-positron",
@@ -337,14 +298,7 @@ def crear_mapa_con_lugares(tipo_ruta="todas", lugar_seleccionado=None):
             zoom=7.8
         ),
         margin=dict(l=0, r=0, t=0, b=0),
-        height=550,
-        clickmode='event+select',
-        showlegend=True,
-        legend=dict(
-            yanchor="top", y=0.99,
-            xanchor="left", x=0.01,
-            bgcolor="rgba(255,255,255,0.8)"
-        )
+        height=600
     )
     
     return fig
