@@ -88,7 +88,7 @@ def cargar_datos_ttl():
     2. Eventos ordenados por marco temporal y orden de evento
     3. Relaciones entre eventos y lugares
     """
-    ttl_path = "qoyllurity.ttl"
+    ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
     if not Path(ttl_path).exists():
         st.error(f"❌ No se encontró el archivo TTL en: {ttl_path}")
         return {}, [], {}
@@ -451,7 +451,7 @@ def cargar_conocimiento():
         from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
         
         # Cargar con la ruta correcta
-        ttl_path = "qoyllurity.ttl"
+        ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
         if not Path(ttl_path).exists():
             st.warning(f"⚠️ No se encontró el archivo TTL en: {ttl_path}")
             return None
@@ -467,43 +467,180 @@ def cargar_conocimiento():
 # ============================================================================
 # FUNCIÓN PARA CREAR PERFIL DE ALTITUD
 # ============================================================================
-def crear_perfil_altitud():
-    """Crea un gráfico de perfil de altitud simplificado"""
-    # Datos de ejemplo del recorrido
-    puntos = {
+def crear_perfil_altitud(lugares, eventos_ordenados):
+    """
+    Crea un gráfico de perfil de altitud basado en la cronología real de eventos
+    Usa altitudes estimadas basadas en las coordenadas reales
+    """
+    # Altitudes conocidas aproximadas para algunos lugares clave
+    altitudes_conocidas = {
         "Paucartambo": 2900,
-        "Ccatcca": 3500,
+        "PlazaPaucartambo": 2900,
+        "CementerioPaucartambo": 2900,
+        "IglesiaPaucartambo": 2900,
         "Huancarani": 3700,
+        "Ccatcca": 3500,
+        "PlazaCcatcca": 3500,
+        "IglesiaCcatcca": 3500,
         "Ocongate": 3800,
+        "CasaPriosteOcongate": 3800,
         "Mahuayani": 4200,
+        "SantuarioQoylluriti": 4600,
+        "CeldaUkukusPaucartambo": 4600,
+        "ColquePunku": 5200,
         "Yanaqancha": 4500,
-        "Santuario": 4600,
-        "Colque Punku": 5200
+        "GrutaYanaqancha": 4500,
+        "Yanaqocha": 4550,
+        "MachuCruz": 4400,
+        "QespiCruz": 4300,
+        "Escalerachayoq": 4200,
+        "IntiAlabado_2025": 3900,
+        "Tayancani": 3800,
+        "GrutaTayankani": 3850,
+        "CapillaTayankani": 3800
     }
     
+    # Construir perfil desde eventos ordenados
+    perfil_puntos = []
+    nombres_puntos = []
+    eventos_info = []
+    distancia_acumulada = [0]
+    
+    coord_anterior = None
+    
+    for i, evento in enumerate(eventos_ordenados):
+        if evento["lugares"]:
+            lugar_uri = evento["lugares"][0]
+            if lugar_uri in lugares:
+                lugar = lugares[lugar_uri]
+                
+                # Obtener altitud (conocida o estimada)
+                if lugar_uri in altitudes_conocidas:
+                    altitud = altitudes_conocidas[lugar_uri]
+                else:
+                    # Estimación simple basada en latitud (más al sur = más alto generalmente)
+                    # Esto es una aproximación muy simplificada
+                    lat = lugar["lat"]
+                    if lat < -13.6:  # Zona baja (Paucartambo, Ocongate)
+                        altitud = 3000
+                    elif lat < -13.58:  # Zona media-baja
+                        altitud = 3500
+                    elif lat < -13.56:  # Zona media
+                        altitud = 4000
+                    elif lat < -13.54:  # Zona media-alta
+                        altitud = 4500
+                    else:  # Zona alta (cerca del glaciar)
+                        altitud = 5000
+                
+                # Evitar duplicados consecutivos
+                if not perfil_puntos or perfil_puntos[-1] != altitud or nombres_puntos[-1] != lugar["nombre"]:
+                    perfil_puntos.append(altitud)
+                    nombres_puntos.append(lugar["nombre"])
+                    eventos_info.append({
+                        "evento": evento["nombre"],
+                        "orden": i + 1,
+                        "lugar": lugar["nombre"]
+                    })
+                    
+                    # Calcular distancia aproximada (en km)
+                    if coord_anterior:
+                        lat1, lon1 = coord_anterior
+                        lat2, lon2 = lugar["lat"], lugar["lon"]
+                        # Fórmula simple de distancia (aproximada)
+                        dist = ((lat2-lat1)**2 + (lon2-lon1)**2)**0.5 * 111  # ~111 km por grado
+                        distancia_acumulada.append(distancia_acumulada[-1] + dist)
+                    
+                    coord_anterior = (lugar["lat"], lugar["lon"])
+    
+    if len(perfil_puntos) < 2:
+        # Fallback a datos de ejemplo si no hay suficientes datos
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No hay suficientes datos de eventos para generar el perfil",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, color="gray")
+        )
+        fig.update_layout(height=400)
+        return fig
+    
+    # Crear gráfico
     fig = go.Figure()
     
+    # Línea principal del perfil
     fig.add_trace(go.Scatter(
-        x=list(puntos.keys()),
-        y=list(puntos.values()),
+        x=list(range(len(perfil_puntos))),
+        y=perfil_puntos,
         mode='lines+markers',
         fill='tozeroy',
         line=dict(color='#1e3c72', width=3),
-        marker=dict(size=10, color='#e67e22'),
+        marker=dict(
+            size=8, 
+            color=perfil_puntos,
+            colorscale='Viridis',
+            showscale=False,
+            line=dict(color='#e67e22', width=2)
+        ),
         name='Altitud',
-        hovertemplate='<b>%{x}</b><br>Altitud: %{y} msnm<extra></extra>'
+        text=[f"<b>{nombres_puntos[i]}</b><br>Evento #{eventos_info[i]['orden']}: {eventos_info[i]['evento']}<br>{perfil_puntos[i]} msnm" 
+              for i in range(len(perfil_puntos))],
+        hovertemplate='%{text}<extra></extra>',
+        customdata=nombres_puntos
     ))
     
-    fig.update_layout(
-        title="Perfil de Altitud - Ruta Qoyllur Rit'i",
-        xaxis_title="Ubicación",
-        yaxis_title="Altitud (msnm)",
-        hovermode='x unified',
-        plot_bgcolor='#fdfaf6',
-        height=400,
-        font=dict(family="Inter, sans-serif"),
-        showlegend=False
+    # Marcar puntos importantes
+    # Punto más alto
+    idx_max = perfil_puntos.index(max(perfil_puntos))
+    fig.add_annotation(
+        x=idx_max, y=perfil_puntos[idx_max],
+        text=f"⛰️ Punto más alto<br>{perfil_puntos[idx_max]} msnm",
+        showarrow=True,
+        arrowhead=2,
+        arrowcolor="#e67e22",
+        ax=0, ay=-40,
+        bgcolor="rgba(230, 126, 34, 0.8)",
+        font=dict(color="white", size=10)
     )
+    
+    # Punto más bajo
+    idx_min = perfil_puntos.index(min(perfil_puntos))
+    fig.add_annotation(
+        x=idx_min, y=perfil_puntos[idx_min],
+        text=f"🏘️ Punto más bajo<br>{perfil_puntos[idx_min]} msnm",
+        showarrow=True,
+        arrowhead=2,
+        arrowcolor="#3498db",
+        ax=0, ay=40,
+        bgcolor="rgba(52, 152, 219, 0.8)",
+        font=dict(color="white", size=10)
+    )
+    
+    fig.update_layout(
+        title={
+            'text': "Perfil de Altitud - Orden Cronológico de la Peregrinación",
+            'font': {'size': 16, 'color': '#1e3c72'}
+        },
+        xaxis_title="Secuencia de eventos",
+        yaxis_title="Altitud (msnm)",
+        xaxis=dict(
+            tickmode='array',
+            tickvals=list(range(len(nombres_puntos))),
+            ticktext=[f"{i+1}" for i in range(len(nombres_puntos))],
+            tickangle=-45
+        ),
+        hovermode='closest',
+        plot_bgcolor='#fdfaf6',
+        height=500,
+        font=dict(family="Inter, sans-serif"),
+        showlegend=False,
+        margin=dict(b=100)
+    )
+    
+    # Añadir líneas de referencia
+    fig.add_hline(y=4000, line_dash="dash", line_color="gray", opacity=0.3,
+                  annotation_text="4000 msnm", annotation_position="right")
+    fig.add_hline(y=5000, line_dash="dash", line_color="gray", opacity=0.3,
+                  annotation_text="5000 msnm", annotation_position="right")
     
     return fig
 
@@ -746,13 +883,33 @@ def main():
         with col4:
             st.metric("🎯 Llegada", "Tayankani", "3,800 msnm")
         
-        perfil = crear_perfil_altitud()
+        perfil = crear_perfil_altitud(lugares, eventos_ordenados)
         st.plotly_chart(perfil, use_container_width=True)
         
         st.info("""
-        **ℹ️ Nota:** El perfil de altitud es una representación aproximada basada en los principales puntos del recorrido.
-        Las altitudes reales pueden variar según la ruta específica tomada.
+        **ℹ️ Nota:** El perfil de altitud sigue el orden cronológico de los eventos extraídos del TTL.
+        Las altitudes se basan en datos conocidos de los lugares principales y estimaciones para otros puntos.
+        Cada punto en el gráfico representa un evento en la secuencia de la peregrinación.
         """)
+        
+        # Mostrar tabla de eventos con altitudes
+        with st.expander("📋 Ver detalle de eventos y altitudes"):
+            eventos_tabla = []
+            for i, evento in enumerate(eventos_ordenados):
+                if evento["lugares"]:
+                    lugar_uri = evento["lugares"][0]
+                    if lugar_uri in lugares:
+                        lugar = lugares[lugar_uri]
+                        eventos_tabla.append({
+                            "Orden": i + 1,
+                            "Evento": evento["nombre"],
+                            "Lugar": lugar["nombre"],
+                            "Marco": evento.get("marco", "N/A")
+                        })
+            
+            if eventos_tabla:
+                df_eventos = pd.DataFrame(eventos_tabla)
+                st.dataframe(df_eventos, use_container_width=True, hide_index=True)
 
 if __name__ == "__main__":
     main()
