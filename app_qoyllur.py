@@ -15,6 +15,7 @@ from rdflib import Graph, Literal, Namespace
 from rdflib.namespace import RDFS, RDF
 import pandas as pd
 import plotly.graph_objects as go
+import sys
 
 # ============================================================================
 # CONFIGURACIÓN
@@ -88,7 +89,7 @@ def cargar_lugares_desde_ttl():
     - Descripción (rdfs:comment)
     - Tipo de entidad (rdf:type)
     """
-    ttl_path = "qoyllurity.ttl"
+    ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
     if not Path(ttl_path).exists():
         st.error(f"❌ No se encontró el archivo TTL en: {ttl_path}")
         return {}
@@ -281,10 +282,20 @@ def crear_mapa_folium(lugares):
 def cargar_conocimiento():
     """Carga el motor de conocimiento si existe el archivo"""
     try:
+        # Importar el módulo
+        import sys
+        sys.path.insert(0, '/mnt/user-data/uploads')
         from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
-        return UltraLiteQoyllurV15("/mnt/user-data/uploads/qoyllurity.ttl")
-    except ImportError:
-        st.warning("⚠️ No se encontró el módulo ultralite_qoyllur_v15. Sistema de preguntas deshabilitado.")
+        
+        # Cargar con la ruta correcta
+        ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
+        if not Path(ttl_path).exists():
+            st.warning(f"⚠️ No se encontró el archivo TTL en: {ttl_path}")
+            return None
+        
+        return UltraLiteQoyllurV15(ttl_path)
+    except ImportError as e:
+        st.warning(f"⚠️ No se encontró el módulo ultralite_qoyllur_v15: {e}")
         return None
     except Exception as e:
         st.warning(f"⚠️ Error al cargar motor de conocimiento: {e}")
@@ -316,7 +327,8 @@ def crear_perfil_altitud():
         fill='tozeroy',
         line=dict(color='#1e3c72', width=3),
         marker=dict(size=10, color='#e67e22'),
-        name='Altitud'
+        name='Altitud',
+        hovertemplate='<b>%{x}</b><br>Altitud: %{y} msnm<extra></extra>'
     ))
     
     fig.update_layout(
@@ -326,7 +338,8 @@ def crear_perfil_altitud():
         hovermode='x unified',
         plot_bgcolor='#fdfaf6',
         height=400,
-        font=dict(family="Inter, sans-serif")
+        font=dict(family="Inter, sans-serif"),
+        showlegend=False
     )
     
     return fig
