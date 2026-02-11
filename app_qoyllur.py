@@ -323,24 +323,57 @@ def cargar_conocimiento():
 # FUNCIONES DE VISUALIZACIÓN
 # ============================================================================
 
-def crear_mapa_interactivo(tipo_ruta="todas"):
-    """Crea mapa interactivo con Plotly - VERSIÓN CORREGIDA"""
-    fig = go.Figure()
+def crear_mapa_interactivo(tipo_ruta="todas", estilo_mapa="satelite"):
+    """
+    Crea mapa interactivo con:
+    ✅ Iconos personalizados por tipo de lugar
+    ✅ Tooltips con información detallada
+    ✅ Imagen satelital o mapa base
+    ✅ Rutas con flechas de dirección
+    ✅ Popups con descripción
+    """
     
-    # Convertir datos a DataFrame
-    df_lugares = []
-    for nombre, coords in LUGARES_COORDENADAS.items():
-        df_lugares.append({
-            "nombre": nombre,
-            "lat": coords["lat"],
-            "lon": coords["lon"],
-            "alt": coords["alt"],
-            "tipo": coords["tipo"]
-        })
-    df = pd.DataFrame(df_lugares)
+    # Diccionario de iconos personalizados por tipo
+    ICONOS = {
+        "pueblo": "town-hall",  # Edificio de pueblo
+        "iglesia": "place-of-worship",  # Iglesia
+        "cementerio": "cemetery",  # Cementerio
+        "plaza": "square",  # Plaza
+        "santuario": "religious-christian",  # Santuario
+        "glaciar": "snow",  # Glaciar/nieve
+        "cruz": "cross",  # Cruz
+        "laguna": "water",  # Agua
+        "descanso": "bench",  # Banco/descanso
+        "rio": "river",  # Río
+        "solar": "sun",  # Sol
+        "capilla": "chapel",  # Capilla
+        "gruta": "cave",  # Cueva
+        "inicio": "flag",  # Bandera de inicio
+        "casa": "home",  # Casa
+        "cruz": "cross",  # Cruz
+    }
     
-    # Colores por tipo
-    colores = {
+    # Tamaños de iconos por tipo
+    TAMAÑOS = {
+        "pueblo": 12,
+        "iglesia": 14,
+        "cementerio": 11,
+        "plaza": 11,
+        "santuario": 16,
+        "glaciar": 15,
+        "cruz": 13,
+        "laguna": 12,
+        "descanso": 10,
+        "rio": 10,
+        "solar": 14,
+        "capilla": 12,
+        "gruta": 11,
+        "inicio": 14,
+        "casa": 11,
+    }
+    
+    # Colores por tipo (mantenemos los existentes)
+    COLORES = {
         "pueblo": "#1e3c72",
         "iglesia": "#c0392b",
         "cementerio": "#7f8c8d",
@@ -358,223 +391,195 @@ def crear_mapa_interactivo(tipo_ruta="todas"):
         "casa": "#d35400"
     }
     
-    # Agregar puntos
+    # Estilos de mapa disponibles
+    ESTILOS_MAPA = {
+        "satelite": "satellite-streets",
+        "calle": "carto-positron",
+        "outdoor": "outdoors",
+        "oscuro": "carto-darkmatter"
+    }
+    
+    fig = go.Figure()
+    
+    # Convertir datos a DataFrame
+    df_lugares = []
+    for nombre, coords in LUGARES_COORDENADAS.items():
+        # Descripciones detalladas para tooltips
+        descripciones = {
+            "Paucartambo": "Pueblo de partida de la Nación Paucartambo",
+            "SantuarioQoylluriti": "Santuario del Señor de Qoyllur Rit'i - 4,800 msnm",
+            "ColquePunku": "Glaciar sagrado - Lugar de rituales nocturnos - 5,200 msnm",
+            "MachuCruz": "Cruz ceremonial - Pausa para comer maíz y queso",
+            "Yanaqocha": "Laguna de despedida - Rituales de abrazo",
+            "Yanaqancha": "Lugar de descanso de 4 horas",
+            "QespiCruz": "Punto del canto de medianoche - Qapaq Qollas",
+            "IntiLloksimuy": "Lugar del Inti Alabado - Saludo al sol",
+            "Tayancani": "Pueblo donde se deposita la imagen del Señor",
+            "CapillaTayankani": "Capilla donde reside la imagen todo el año",
+            "GrutaTayankani": "Gruta de rituales finales de los Ukukus",
+            "Ocongate": "Pueblo donde termina oficialmente la festividad",
+            "PlazaOcongate": "Plaza de la procesión final",
+            "Mahuayani": "Punto de inicio de la caminata al santuario",
+            "Huancarani": "Cruce vial - Punto de encuentro de danzantes",
+            "Ccatcca": "Pueblo de descanso y comida comunitaria",
+            "IglesiaCcatcca": "Iglesia visitada ritualmente",
+            "PlazaCcatcca": "Plaza de la comida comunitaria (asado con mote)",
+            "CasaPriosteOcongate": "Casa del prioste - Autoridad de la fiesta"
+        }
+        
+        df_lugares.append({
+            "nombre": nombre,
+            "lat": coords["lat"],
+            "lon": coords["lon"],
+            "alt": coords["alt"],
+            "tipo": coords["tipo"],
+            "descripcion": descripciones.get(nombre, f"Lugar sagrado: {nombre}"),
+            "icono": ICONOS.get(coords["tipo"], "marker"),
+            "tamano": TAMAÑOS.get(coords["tipo"], 10)
+        })
+    
+    df = pd.DataFrame(df_lugares)
+    
+    # Agregar puntos con iconos personalizados
     for tipo in df["tipo"].unique():
         df_tipo = df[df["tipo"] == tipo]
+        
+        # Texto para tooltip detallado
+        hover_text = []
+        for _, row in df_tipo.iterrows():
+            texto = f"""
+            <b style='font-size: 16px; color: {COLORES.get(tipo, "#000000")};'>{row['nombre']}</b><br>
+            <span style='font-size: 14px;'>{row['descripcion']}</span><br>
+            <br>
+            <span style='font-size: 13px;'>
+            🏔️ <b>Tipo:</b> {tipo.capitalize()}<br>
+            📏 <b>Altitud:</b> {row['alt']:,} msnm<br>
+            🗺️ <b>Coordenadas:</b> {row['lat']:.4f}, {row['lon']:.4f}
+            </span>
+            """
+            hover_text.append(texto)
+        
         fig.add_trace(go.Scattermapbox(
             lat=df_tipo["lat"],
             lon=df_tipo["lon"],
             mode="markers+text",
             marker=dict(
-                size=10,
-                color=colores.get(tipo, "#000000"),
-                symbol="marker"
+                size=df_tipo["tamano"],
+                color=COLORES.get(tipo, "#000000"),
+                symbol=df_tipo["icono"],
+                allowoverlap=False
             ),
             text=df_tipo["nombre"],
             textposition="top center",
+            textfont=dict(size=10, color="#1e3c72"),
             name=tipo.capitalize(),
-            hovertemplate="<b>%{text}</b><br>" +
-                         f"Tipo: {tipo}<br>" +
-                         "Altitud: %{customdata} msnm<br>" +
-                         "<extra></extra>",
-            customdata=df_tipo["alt"]
+            hovertemplate="%{customdata}<extra></extra>",
+            customdata=hover_text,
+            hoverlabel=dict(
+                bgcolor="white",
+                bordercolor=COLORES.get(tipo, "#000000"),
+                font=dict(size=12, color="#1e3c72")
+            )
         ))
     
-    # Agregar rutas - CORREGIDO: QUITAR dash
+    # Agregar rutas con flechas de dirección
     if tipo_ruta in ["vehicular", "todas"]:
         coords_ruta = []
+        nombres_ruta = []
         for lugar in RUTA_VEHICULAR:
             if lugar in LUGARES_COORDENADAS:
                 coords_ruta.append(LUGARES_COORDENADAS[lugar])
+                nombres_ruta.append(lugar)
         
+        # Línea principal
         fig.add_trace(go.Scattermapbox(
             lat=[c["lat"] for c in coords_ruta],
             lon=[c["lon"] for c in coords_ruta],
             mode="lines+markers",
-            line=dict(width=3, color="#e67e22"),
-            marker=dict(size=6, color="#e67e22"),
-            name="Ruta vehicular",
-            hovertemplate="Ruta vehicular<br>" +
+            line=dict(width=4, color="#e67e22"),
+            marker=dict(
+                size=8,
+                color="#e67e22",
+                symbol="marker",
+                allowoverlap=False
+            ),
+            name="🚌 Ruta vehicular",
+            hovertemplate="<b>Ruta vehicular</b><br>" +
                          f"Paucartambo → Mahuayani<br>" +
+                         "Distancia: ~120 km<br>" +
+                         "Paradas: " + ", ".join(nombres_ruta[1:-1]) + "<br>" +
                          "<extra></extra>"
         ))
+        
+        # Agregar flechas de dirección (puntos cada 2 posiciones)
+        for i in range(0, len(coords_ruta)-1, 2):
+            if i+1 < len(coords_ruta):
+                fig.add_trace(go.Scattermapbox(
+                    lat=[coords_ruta[i]["lat"], coords_ruta[i+1]["lat"]],
+                    lon=[coords_ruta[i]["lon"], coords_ruta[i+1]["lon"]],
+                    mode="lines",
+                    line=dict(width=0),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ))
     
     if tipo_ruta in ["lomada", "todas"]:
         coords_lomada = []
+        nombres_lomada = []
         for lugar in RUTA_LOMADA:
             if lugar in LUGARES_COORDENADAS:
                 coords_lomada.append(LUGARES_COORDENADAS[lugar])
+                nombres_lomada.append(lugar)
         
         fig.add_trace(go.Scattermapbox(
             lat=[c["lat"] for c in coords_lomada],
             lon=[c["lon"] for c in coords_lomada],
             mode="lines+markers",
-            line=dict(width=3, color="#8e44ad"),
-            marker=dict(size=6, color="#8e44ad"),
-            name="Ruta Lomada",
-            hovertemplate="Lomada (caminata 24h)<br>" +
+            line=dict(width=4, color="#8e44ad"),
+            marker=dict(
+                size=8,
+                color="#8e44ad",
+                symbol="marker",
+                allowoverlap=False
+            ),
+            name="🚶 Ruta Lomada (24h)",
+            hovertemplate="<b>Lomada / Loman Pureq</b><br>" +
+                         "Caminata ritual de 24 horas<br>" +
                          "Santuario → Tayankani<br>" +
+                         "Distancia: ~35 km<br>" +
+                         "Hitos: " + ", ".join(nombres_lomada[1:-1]) + "<br>" +
                          "<extra></extra>"
         ))
     
-    # Configurar mapa
+    # Configurar mapa con estilo seleccionado
+    estilo = ESTILOS_MAPA.get(estilo_mapa, "carto-positron")
+    
     fig.update_layout(
         mapbox=dict(
-            style="carto-positron",
+            style=estilo,
             center=dict(lat=-13.5, lon=-71.4),
-            zoom=8
+            zoom=8.2,
+            pitch=0,
+            bearing=0
         ),
-        margin=dict(l=0, r=0, t=30, b=0),
-        height=600,
+        margin=dict(l=0, r=0, t=40, b=0),
+        height=650,
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="left",
             x=0.01,
-            bgcolor="rgba(255,255,255,0.8)",
+            bgcolor="rgba(255,255,255,0.9)",
             bordercolor="#e9ecef",
-            borderwidth=1
+            borderwidth=1,
+            font=dict(size=11)
         ),
         title=dict(
             text="🗺️ Mapa Sagrado de Qoyllur Rit'i",
-            font=dict(size=20, color="#1e3c72"),
-            x=0.5
+            font=dict(size=22, color="#1e3c72", family="Inter"),
+            x=0.5,
+            y=0.98
         )
-    )
-    
-    return fig
-
-def crear_grafico_altitud():
-    """Crea gráfico de perfil de altitud"""
-    # Ruta completa: Paucartambo → Santuario → Tayankani
-    ruta_completa = [
-        "Paucartambo",
-        "Huancarani",
-        "Ccatcca",
-        "Ocongate",
-        "Mahuayani",
-        "SantuarioQoylluriti",
-        "MachuCruz",
-        "Yanaqocha",
-        "Yanaqancha",
-        "QquchiyocWayqo",
-        "QespiCruz",
-        "IntiLloksimuy",
-        "Tayancani"
-    ]
-    
-    datos_ruta = []
-    distancia = 0
-    distancias = [0]
-    
-    for i, lugar in enumerate(ruta_completa):
-        if lugar in LUGARES_COORDENADAS:
-            datos_ruta.append({
-                "lugar": lugar,
-                "altitud": LUGARES_COORDENADAS[lugar]["alt"],
-                "distancia": distancia,
-                "tipo": LUGARES_COORDENADAS[lugar]["tipo"]
-            })
-        
-        # Calcular distancia aproximada (simplificado)
-        if i < len(ruta_completa) - 1:
-            distancia += random.randint(8, 15)  # Simulado
-    
-    df_ruta = pd.DataFrame(datos_ruta)
-    
-    fig = go.Figure()
-    
-    # Área bajo la curva
-    fig.add_trace(go.Scatter(
-        x=df_ruta["distancia"],
-        y=df_ruta["altitud"],
-        mode="lines+markers",
-        name="Perfil de altitud",
-        line=dict(color="#1e3c72", width=4),
-        marker=dict(
-            size=10,
-            color=df_ruta["altitud"],
-            colorscale="Viridis",
-            showscale=True,
-            colorbar=dict(title="msnm", x=1.05)
-        ),
-        text=df_ruta["lugar"],
-        hovertemplate="<b>%{text}</b><br>" +
-                     "Distancia: %{x:.0f} km<br>" +
-                     "Altitud: %{y:.0f} msnm<br>" +
-                     "<extra></extra>"
-    ))
-    
-    # Destacar puntos clave
-    puntos_clave = ["Paucartambo", "SantuarioQoylluriti", "Tayancani"]
-    df_clave = df_ruta[df_ruta["lugar"].isin(puntos_clave)]
-    
-    fig.add_trace(go.Scatter(
-        x=df_clave["distancia"],
-        y=df_clave["altitud"],
-        mode="markers+text",
-        marker=dict(size=15, color="#e67e22", symbol="star"),
-        text=df_clave["lugar"],
-        textposition="top center",
-        name="Puntos clave",
-        showlegend=True
-    ))
-    
-    fig.update_layout(
-        title="⛰️ Perfil de Altitud de la Peregrinación",
-        xaxis_title="Distancia aproximada (km)",
-        yaxis_title="Altitud (msnm)",
-        height=500,
-        hovermode="x unified",
-        font=dict(family="Inter", size=12),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        yaxis=dict(gridcolor="#e9ecef"),
-        xaxis=dict(gridcolor="#e9ecef")
-    )
-    
-    return fig
-
-def crear_grafico_eventos():
-    """Crea gráfico de eventos por día"""
-    eventos_por_dia = {
-        "Día 1 (Sábado)": 1,
-        "Día 2 (Domingo)": 9,
-        "Día 3 (Lunes)": 6,
-        "Noche Lunes-Martes": 1,
-        "Día 4 (Martes)": 6,
-        "Noche Martes-Miércoles": 2,
-        "Día 5 (Miércoles)": 5
-    }
-    
-    df_eventos = pd.DataFrame([
-        {"dia": d, "eventos": e} for d, e in eventos_por_dia.items()
-    ])
-    
-    fig = px.bar(
-        df_eventos,
-        x="dia",
-        y="eventos",
-        color="eventos",
-        color_continuous_scale=["#f39c12", "#e67e22", "#c0392b"],
-        title="📋 Eventos Rituales por Día",
-        labels={"dia": "Día de la festividad", "eventos": "Número de eventos"}
-    )
-    
-    fig.update_traces(
-        texttemplate="%{y}",
-        textposition="outside",
-        marker_line_color="#1e3c72",
-        marker_line_width=1.5
-    )
-    
-    fig.update_layout(
-        height=400,
-        showlegend=False,
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter", size=12),
-        xaxis_tickangle=-45
     )
     
     return fig
