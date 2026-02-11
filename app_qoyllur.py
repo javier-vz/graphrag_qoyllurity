@@ -88,7 +88,7 @@ def cargar_datos_ttl():
     2. Eventos ordenados por marco temporal y orden de evento
     3. Relaciones entre eventos y lugares
     """
-    ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
+    ttl_path = "qoyllurity.ttl"
     if not Path(ttl_path).exists():
         st.error(f"❌ No se encontró el archivo TTL en: {ttl_path}")
         return {}, [], {}
@@ -451,7 +451,7 @@ def cargar_conocimiento():
         from ultralite_qoyllur_v15 import UltraLiteQoyllurV15
         
         # Cargar con la ruta correcta
-        ttl_path = "/mnt/user-data/uploads/qoyllurity.ttl"
+        ttl_path = "qoyllurity.ttl"
         if not Path(ttl_path).exists():
             st.warning(f"⚠️ No se encontró el archivo TTL en: {ttl_path}")
             return None
